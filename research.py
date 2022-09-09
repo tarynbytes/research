@@ -32,13 +32,10 @@ class Run():
         matches = []
         for n in range(len(urls)):
             s = urls[n]
-            i = 0
             matched = []
             for i, line in enumerate(file_lines):
                 if s == file_lines[i]._url:
                     matched.append(i)
-                i += 1
-            n +=1
             matches.append(matched)
         self._matches = matches
 
@@ -46,17 +43,16 @@ class Run():
         print(f"{self._matches}\n")
 
     def organize_parsed_data(self, file_lines):
-        summ, start, stop, n, tabs, organized = 0, 0, 0, 1, [], []
+        summ, start, stop, n, urls, organized = 0, 0, 0, 1, [] ,[]
         for match in self._matches:
             for m in match:
-                if int(file_lines[m]._status) == 0:
-                    pass
-                if file_lines[m]._tabid not in tabs:
-                    tabs.append(file_lines[m]._tabid)
-        for tab in tabs:
+                if int(file_lines[m]._status) != 0 and file_lines[m]._url not in urls:
+                    urls.append(file_lines[m]._url)
+
+        for url in urls:
             for match in self._matches:
                 for m in match:
-                    if int(file_lines[m]._tabid) == int(tab):
+                    if int(file_lines[m]._status) != 0 and file_lines[m]._url == url:
                         organized.append(file_lines[m])
         self._organized = organized
     
@@ -65,24 +61,33 @@ class Run():
 
     def avg_dload_time(self):
         #what is the average download time for each website
-        for line in self._organized:
-            if int(line._status) == 1:
-                start = int(line._timestamp)
-                print(f"URL: {line._url}\tTab ID: {line._tabid}\tStarted: {line._timestamp}")
-            if int(line._status) == 2:
-                stop = int(line._timestamp)
-                print(f"URL: {line._url}\tTab ID: {line._tabid}\tStopped: {line._timestamp}")
-        #print()
-        #summ = summ + (stop - start)
-        #average = summ / n
-        #n += 1
-        #print(average)
-        #print(tabs)
+        for i, line in enumerate(self._organized):
+            #if True:
+            try:
+                if line._url == self._organized[i+1]._url and line._tabid == self._organized[i+1]._tabid:
+                    if int(line._status) == 1:
+                        started = int(line._timestamp)
+                    elif int(line._status) == 2:
+                        stopped = int(line._timestamp)
+                try:
+                    if started and stopped:
+                        summ = 0
+                        diff = stopped - started
+                        summ = summ + diff
+                        print(f"\nDownload time for URL {line._url}, tabid {line._tabid} (index {i}):\nStarted: {started}\nStopped: {stopped}\nDownload Time: {summ}ms")
+                        #average = summ / n
+                        #n += 1
+                        #print(average)
+                        started, stopped = 0, 0
+                except:
+                    print(f"Both values not populated by index {i}.")
+            except:
+                print("\nEnd of range")
+                break
+
         
-
-
     def overlap(self):
-        #how many overlap are there (that is one website is still downloading, while a second one starts downloading)
+        #how much overlap is there (that is one website is still downloading, while a second one starts downloading)
         pass
 
     def avg_overlap_time(self):
@@ -117,11 +122,9 @@ def main():
     for line in file_lines:
         urls.append(line._url)
 
-    run.set_matches(numpy.unique(urls), file_lines)
-    run.print_matches()
-    run.organize_parsed_data(file_lines)
-    #run.print_organized()
 
+    run.set_matches(numpy.unique(urls), file_lines)
+    run.organize_parsed_data(file_lines)
     run.avg_dload_time()
     #run.overlap()
     #run.avg_dload_time_before_overlap()
