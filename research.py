@@ -46,22 +46,30 @@ class Run():
 
     def avg_dload_time(self, file_lines):
         #what is the average download time for each website
-        summ, start, stop, n = 0, 0, 0, 1
+        summ, start, stop, n, tabs = 0, 0, 0, 1, []
         for match in self._matches:
             for m in match:
-                if int(file_lines[m]._status) == 0:
-                    pass
-                if int(file_lines[m]._status) == 1:
-                    start = int(file_lines[m]._timestamp)
-                    print(f"URL: {file_lines[m]._url}\tTab ID: {file_lines[m]._tabid}\tStarted: {file_lines[m]._timestamp}")
-                if int(file_lines[m]._status) == 2:
-                    stop = int(file_lines[m]._timestamp)
-                    print(f"URL: {file_lines[m]._url}\tTab ID: {file_lines[m]._tabid}\tStopped: {file_lines[m]._timestamp}")
-            print()
-            summ = summ + (stop - start)
-            average = summ / n
-            n += 1
-            #print(average)
+                if file_lines[m]._tabid not in tabs:
+                    tabs.append(file_lines[m]._tabid)
+        for tab in tabs:
+            for match in self._matches:
+                for m in match:
+                    if int(file_lines[m]._tabid) == int(tab):
+                        if int(file_lines[m]._status) == 0:
+                            pass
+                        if int(file_lines[m]._status) == 1:
+                            start = int(file_lines[m]._timestamp)
+                            print(f"URL: {file_lines[m]._url}\tTab ID: {file_lines[m]._tabid}\tStarted: {file_lines[m]._timestamp}")
+                        if int(file_lines[m]._status) == 2:
+                            stop = int(file_lines[m]._timestamp)
+                            print(f"URL: {file_lines[m]._url}\tTab ID: {file_lines[m]._tabid}\tStopped: {file_lines[m]._timestamp}")
+                    #print()
+                    summ = summ + (stop - start)
+                    average = summ / n
+                    n += 1
+                    #print(average)
+                #print(tabs)
+
 
     def overlap(self):
         #how many overlap are there (that is one website is still downloading, while a second one starts downloading)
