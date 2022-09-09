@@ -23,8 +23,9 @@ class LogFile():
 
 
 class Run():
-    def __init__(self, matches) -> None:
+    def __init__(self, matches, organized) -> None:
         self._matches = matches
+        self._organized = organized
 
     def set_matches(self, urls, file_lines):
         #identifies all unique URL instances by indicies
@@ -44,31 +45,40 @@ class Run():
     def print_matches(self):
         print(f"{self._matches}\n")
 
-    def avg_dload_time(self, file_lines):
-        #what is the average download time for each website
-        summ, start, stop, n, tabs = 0, 0, 0, 1, []
+    def organize_parsed_data(self, file_lines):
+        summ, start, stop, n, tabs, organized = 0, 0, 0, 1, [], []
         for match in self._matches:
             for m in match:
+                if int(file_lines[m]._status) == 0:
+                    pass
                 if file_lines[m]._tabid not in tabs:
                     tabs.append(file_lines[m]._tabid)
         for tab in tabs:
             for match in self._matches:
                 for m in match:
                     if int(file_lines[m]._tabid) == int(tab):
-                        if int(file_lines[m]._status) == 0:
-                            pass
-                        if int(file_lines[m]._status) == 1:
-                            start = int(file_lines[m]._timestamp)
-                            print(f"URL: {file_lines[m]._url}\tTab ID: {file_lines[m]._tabid}\tStarted: {file_lines[m]._timestamp}")
-                        if int(file_lines[m]._status) == 2:
-                            stop = int(file_lines[m]._timestamp)
-                            print(f"URL: {file_lines[m]._url}\tTab ID: {file_lines[m]._tabid}\tStopped: {file_lines[m]._timestamp}")
-                    #print()
-                    summ = summ + (stop - start)
-                    average = summ / n
-                    n += 1
-                    #print(average)
-                #print(tabs)
+                        organized.append(file_lines[m])
+        self._organized = organized
+    
+    def print_organized(self):
+        print(f"{self._organized}\n")
+
+    def avg_dload_time(self):
+        #what is the average download time for each website
+        for line in self._organized:
+            if int(line._status) == 1:
+                start = int(line._timestamp)
+                print(f"URL: {line._url}\tTab ID: {line._tabid}\tStarted: {line._timestamp}")
+            if int(line._status) == 2:
+                stop = int(line._timestamp)
+                print(f"URL: {line._url}\tTab ID: {line._tabid}\tStopped: {line._timestamp}")
+        #print()
+        #summ = summ + (stop - start)
+        #average = summ / n
+        #n += 1
+        #print(average)
+        #print(tabs)
+        
 
 
     def overlap(self):
@@ -102,14 +112,17 @@ def main():
             file_lines.append(LogFile(timestamp, userid, tabid, url, status))
     
     timestamps, userids, tabids, urls, statuses = [], [], [], [], []
-    run = Run(matches=[[]])
+    run = Run(matches=[[]], organized=[])
 
     for line in file_lines:
         urls.append(line._url)
 
     run.set_matches(numpy.unique(urls), file_lines)
     run.print_matches()
-    run.avg_dload_time(file_lines)
+    run.organize_parsed_data(file_lines)
+    #run.print_organized()
+
+    run.avg_dload_time()
     #run.overlap()
     #run.avg_dload_time_before_overlap()
     #run.websites_in_overlap()
