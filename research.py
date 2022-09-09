@@ -2,23 +2,6 @@
 
 import time, numpy
 
-'''
-WebTracker data:
-
-- - [14/Sep/2021:20:30:42 +0000] "POST /WebTracker/1631651439711:90e4a172c9eb701c:262:www.twitch.tv:1 HTTP/1.1" 404 5763 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36"
-
-This is an example of one line of the data. What we are interested in is the part after POST
-Start with writing a program that read a file line by line. For each line, you have to "extract" the data after POST
-The format is /WebTracker/TIMESTAMP:ID:TABID:URL:STATUS where STATUS is either 0, 1 or 2
-
-in the example I gave
-
-TIMESTAMP is 1631651439711
-ID of the user is 90e4a172c9eb701c
-tab id is 262
-Status is 1
-'''
-
 class LogFile():
     def __init__(self, timestamp, userid, tabid, url, status) -> None:
         self._timestamp = timestamp
