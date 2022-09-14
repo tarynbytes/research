@@ -37,8 +37,6 @@ class Log():
 class Sessions():
     """Breaks log strings into intelligble and queryable user sessions associated with a unique userid."""
 
-    CLOSED = 0
-
     def __init__(self, log_strs, pp):
         self._log_strs = log_strs
         self._pp = pp
@@ -46,37 +44,9 @@ class Sessions():
         self._unique_userids = {}
         self._sorted_lst = []
 
-        self.remove_closed_tabs()
         self.set_unique_userids()
         self.set_sorted_lst()
 
-
-    # TO-DO: Fix why this isn't catching all statuses of zero in one go...
-    # (Had to do three times on testLog in order to remove all zeroes)
-    def remove_closed_tabs(self):
-        """Removes closed tabs from the logfile because they are not significant to the analysis."""
-        
-        '''
-        for index, log_str in enumerate(self._log_strs):
-            print(index, log_str)
-        print()
-        '''
-        for log_str in self._log_strs:
-            if self.CLOSED == log_str.status:
-                self._log_strs.remove(log_str)
-
-        for log_str in self._log_strs:
-            if self.CLOSED == log_str.status:
-                self._log_strs.remove(log_str)
-
-        for log_str in self._log_strs:
-            if self.CLOSED == log_str.status:
-                self._log_strs.remove(log_str)
-
-        '''
-        for index, log_str in enumerate(self._log_strs):
-            print(index, log_str)
-        '''
 
     @property
     def unique_userids(self):
@@ -113,7 +83,7 @@ class Sessions():
                 else:
                     sessions[identifiers].append(val)
             for key2, value2 in sessions.items():
-                sessions_sorted = {key1: sorted(value2,key=lambda val: (val.url, val.tabid, val.status, val.timestamp))}
+                sessions_sorted = {key1: sorted(value2,key=lambda val: (val.url, val.tabid, val.timestamp))}
                 self._sorted_lst.append(sessions_sorted)
 
 
@@ -121,7 +91,7 @@ class Sessions():
 # Generic, not per-user information can probably be discarded.
 class Analyzer():
     """Performs analysis operations on sessions."""
-    STARTED, FINISHED = 1, 2
+    CLOSED, STARTED, FINISHED = 0, 1, 2
 
     def __init__(self, sessions, pp):
         self._sessions = sessions
