@@ -118,7 +118,8 @@ class Analyzer():
                         print(f"Average download time: {sum(download_times) / len(download_times)}ms")
 
     def avg_session_overlap(self):
-        """Determines the average overlap time between browsing sessions for each user.
+        """Determines the average overlap time for each user.
+            Overlap defined as where one website is still downloading while a second one starts downloading.
             This information can indicate how frequent a user is to open new tabs."""
         pass
 
@@ -155,7 +156,7 @@ def main() -> int:
     log_strs = parse_logs(args.filename)
     pp = pprint.PrettyPrinter(indent=2)
 
-    sessions = Sessions(log_strs, pp)
+    sessions = Sessions(log_strs)
     analyzer = Analyzer(sessions, pp)
     analyzer.avg_url_dload_time()
 
