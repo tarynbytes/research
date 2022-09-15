@@ -66,7 +66,7 @@ class Sessions():
             
             Sessions are defined as dictionaries with a USERID as a key, and log_str objects as values.
             log_str opbjects must have matching URLs and TABIDs to be part of that dictionary.
-            In this way, the status (started/finished) of each corresponding url:tabid session can be tracked per user.
+            In this way, the status of each corresponding url:tabid session can be tracked per user.
 
         """
         for key1, value1 in self._unique_userids.items():
