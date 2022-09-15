@@ -37,13 +37,10 @@ class Log():
 class Sessions():
     """Breaks log strings into intelligble and queryable user sessions associated with a unique userid."""
 
-    def __init__(self, log_strs, pp):
+    def __init__(self, log_strs):
         self._log_strs = log_strs
-        self._pp = pp
-
         self._unique_userids = {}
         self._sorted_lst = []
-
         self.set_unique_userids()
         self.set_sorted_lst()
 
