@@ -94,6 +94,9 @@ class Session():
     @property
     def start(self):
         return self._start
+    @property
+    def logs(self):
+        return self._session_logs
     
 class Download():
     """Associates Downloads to each Session object. """
@@ -128,8 +131,13 @@ class Analyzer():
         self._sessions = sessions
     
     def timeline(self, sessions):
+        sessions_sorted = collections.defaultdict(list)
         for session in sessions:
-            print(session)
+            sessions_sorted[session.userid].append(f"START: {session.start}, URL: {session.url}, TABID: {session.tabid}\n{session.logs}")
+        for key, value in sessions_sorted.items():
+            print(f"\nUSERID: {key}")
+            for val in value:
+                print(f"{val}")
 
     def avg_url_dload_time(self, sessions):
         """Determines the average download time for each session for each user.
@@ -141,14 +149,14 @@ class Analyzer():
                 download_times.append(download.end - download.start)
             if download_times:
                 avg_times[session.userid].append(f"URL: {session.url}, TABID: {session.tabid}, Average download time: {sum(download_times) / len(download_times)}ms")
-
+        
         for key, value in avg_times.items():
             print(f"\nUSERID: {key}")
             for val in value:
                 print(f"{val}")
         
 
-    def avg_session_overlap(self):
+    def avg_session_overlap(self, sessions):
         """Determines the average overlap time among sessions per user.
             Overlap defined as where one website is still downloading while a second one starts downloading.
             This information can indicate how frequent a user is to open new tabs."""
@@ -177,7 +185,6 @@ def generate_sessions(logs):
         except Exception as e:
             sessions[log.session_hash] = Session(log.session_hash)
             sessions[log.session_hash].add_log(log)
-
     sessions = list(sessions.values())
     for session in sessions:
         session.sort_logs()
@@ -205,6 +212,7 @@ def main() -> int:
     analyzer = Analyzer(sessions)
     analyzer.timeline(sessions)
     #analyzer.avg_url_dload_time(sessions)
+
     return 0
 
 if __name__ == "__main__":
