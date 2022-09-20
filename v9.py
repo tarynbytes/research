@@ -20,7 +20,7 @@ class Log():
         return hash_obj.hexdigest()
         
     def __str__(self):
-        return f"TIMESTAMP: {self._timestamp}\tUSERID: {self._userid}\tTABID: {self._tabid}\tURL: {self._url}\tSTATUS: {self._status}"
+        return f"\t\tTIMESTAMP: {self._timestamp}\tUSERID: {self._userid}\tTABID: {self._tabid}\tURL: {self._url}\tSTATUS: {self._status}"
 
     def __repr__(self):
         return f"{self._timestamp} {self._userid} {self._tabid} {self._url} {self._status}"
@@ -67,7 +67,7 @@ class Session():
             self.url = log.url
             self.tabid = log.tabid
         self._session_logs.append(log)
-
+    
     def get_downloads(self):
         if 2 <= len(self._session_logs):
             for index, log in enumerate(self._session_logs):
@@ -97,7 +97,10 @@ class Session():
     @property
     def logs(self):
         return self._session_logs
-    
+    @property
+    def hash(self):
+        return self._session_id
+
 class Download():
     """Associates Downloads to each Session object. """
     def __init__(self, session, start, end):
@@ -130,10 +133,9 @@ class Analyzer():
     def __init__(self, sessions):
         self._sessions = sessions
     
-    def timeline(self, sessions):
-        sessions_sorted = collections.defaultdict(list)
-        for session in sessions:
-            sessions_sorted[session.userid].append(f"START: {session.start}, URL: {session.url}, TABID: {session.tabid}\n{session.logs}")
+    def timeline(self, sessions_sorted):
+        """ Prints a chronological, intelligible sequence of events of the whole log file for reference."""
+        print("\n################################### TIMELINE #######################################")
         for key, value in sessions_sorted.items():
             print(f"\nUSERID: {key}")
             for val in value:
@@ -142,6 +144,7 @@ class Analyzer():
     def avg_url_dload_time(self, sessions):
         """Determines the average download time for each session for each user.
             This information can indicate connectivity speed per user."""
+        print("\n####################### AVERAGE DOWNLOAD TIME PER USER ##############################")
         avg_times = collections.defaultdict(list)
         for session in sessions:
             download_times = []
@@ -156,11 +159,13 @@ class Analyzer():
                 print(f"{val}")
         
 
-    def avg_session_overlap(self, sessions):
+    def avg_session_overlap(self, sessions_sorted):
         """Determines the average overlap time among sessions per user.
             Overlap defined as where one website is still downloading while a second one starts downloading.
             This information can indicate how frequent a user is to open new tabs."""
-        pass
+        print("\n########################## AVERAGE OVERLAP PER USER #################################")
+        
+
 
     def avg_dload_time_before_overlap(self):
         """Determines the average time that a website starts downloading before an overlap happens."""
@@ -178,7 +183,12 @@ class Analyzer():
 
 
 def generate_sessions(logs):
+    """ Returns:
+            sessions -> a list of session objects
+            sessions_sorted -> a dictionary of {userid:session_objects_list}
+    """
     sessions = {}
+    sessions_sorted = collections.defaultdict(list)
     for log in logs:
         try:
             sessions[log.session_hash].add_log(log)
@@ -189,8 +199,12 @@ def generate_sessions(logs):
     for session in sessions:
         session.sort_logs()
         session.get_downloads()
+        str = f"\tHASH: {session.hash}"
+        for log in session._session_logs:
+            str += f"\n{log}"
+        sessions_sorted[session.userid].append(str)
 
-    return sorted(sessions, key=lambda session: (session.start, session.userid, session.url, session.tabid))
+    return sorted(sessions, key=lambda session: (session.start, session.userid, session.url, session.tabid)), sessions_sorted
 
 def parse_logs(filename:str):
     """Returns a list of parsed log_str objects, where each log_str object is a list of five strings."""
@@ -208,10 +222,12 @@ def handle_args():
 def main() -> int:
     args = handle_args()
     logs = parse_logs(args.filename)
-    sessions = generate_sessions(logs) # returns a list of Session objects
+    sessions, sessions_sorted = generate_sessions(logs) # returns a list of Session objects and a dictionary of {userid:session_objects_list} respectively.
+
     analyzer = Analyzer(sessions)
-    analyzer.timeline(sessions)
-    #analyzer.avg_url_dload_time(sessions)
+    analyzer.timeline(sessions_sorted)
+    analyzer.avg_url_dload_time(sessions)
+    analyzer.avg_session_overlap(sessions_sorted)
 
     return 0
 
