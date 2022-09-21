@@ -52,7 +52,8 @@ class User():
         self._sessions = sessions
         self._userid = userid
         self._starts = []
-    
+        self._overlaps = []
+
     def __str__(self):
         ret_str = f"USERID: {self._userid}"
         for session in self._sessions:
@@ -64,6 +65,13 @@ class User():
             for log in session._session_logs:
                 if 1 == log.status:
                     self._starts.append(log)
+            
+    def get_overlaps(self):
+        for session in self._sessions:
+            for download in session.downloads:
+                for start in self._starts:
+                    if download.start < start.timestamp < download.end and start.url != session.url:
+                        self._overlaps.append(Overlap(self, download.start_log, start, download.end_log))
 
     @property
     def sessions(self):
@@ -74,6 +82,10 @@ class User():
     @property
     def starts(self):
         return self._starts
+    @property
+    def overlaps(self):
+        return self._overlaps
+
 
 
 class Session():
@@ -103,7 +115,7 @@ class Session():
             for index, log in enumerate(self._session_logs):
                 try:
                     if 1 == self._session_logs[index].status and 2 == self._session_logs[index + 1].status:
-                        self._downloads.append(Download(self, log.timestamp, self._session_logs[index + 1].timestamp))
+                        self._downloads.append(Download(self, log, self._session_logs[index + 1]))
                 except:
                     continue
 
@@ -135,10 +147,12 @@ class Session():
 
 class Download():
     """Associates Downloads to each Session object."""
-    def __init__(self, session, start, end):
+    def __init__(self, session, start_log, end_log):
         self._session = session
-        self._start = start
-        self._end = end
+        self._start_log = start_log
+        self._end_log = end_log
+        self._start = start_log.timestamp
+        self._end = end_log.timestamp
 
     def __contains__(self, download):
         if (isinstance(download, Downloads)):
@@ -148,7 +162,7 @@ class Download():
 
     def __str__(self):
         return f"Download:\n\tstart:\t{self.start}\n\tend:\t{self.end}"
-        
+ 
     @property
     def session(self):
         return self.session
@@ -156,9 +170,32 @@ class Download():
     def start(self):
         return self._start
     @property
+    def start_log(self):
+        return self._start_log
+    @property
     def end(self):
         return self._end
+    @property
+    def end_log(self):
+        return self._end_log
 
+
+class Overlap():
+    def __init__(self, user, start, overlap, end):
+        self._user = user
+        self._start = start
+        self._overlap = overlap
+        self._end = end
+
+    @property
+    def start(self):
+        return self._start
+    @property
+    def overlap_log(self):
+        return self._overlap
+    @property
+    def end(self):
+        return self._end
 
 
 class Analyzer():
@@ -191,14 +228,11 @@ class Analyzer():
             Overlap defined as where one website is still downloading while a second one starts downloading.
             This information can indicate how frequent a user is to open new tabs."""
         print("\n########################## AVERAGE OVERLAP PER USER #################################")
+        avg_overlaps = collections.defaultdict(list)
         for user in users:
-            overlaps = collections.defaultdict(list)
-            for session in user.sessions:
-                for download in session.downloads:
-                    for start in user.starts:
-                        if download.start < start.timestamp < download.end and start.url != session.url:
-                            overlaps[user.id].append(f"\n  [!] Overlap!\n\tSTART:   {download.start}\t{session.url}\n\tOVERLAP: {start.timestamp}\t{start.url}\n\tEND:     {download.end}\t{session.url}")
-            self.print_results(overlaps)
+            for overlap in user.overlaps:
+                avg_overlaps[user.id].append(f"\n  [!] Overlap!\n\tSTART:   {overlap.start}\n\tOVERLAP: {overlap.overlap_log}\n\tEND:     {overlap.end}")
+        self.print_results(avg_overlaps)
  
 
     def avg_dload_time_before_overlap(self):
@@ -249,6 +283,7 @@ def generate_user_sessions(logs):
 
     for user in users:
         user.get_starts()
+        user.get_overlaps()
 
     return users
 
@@ -272,7 +307,7 @@ def main() -> int:
     analyzer = Analyzer(users)
     #analyzer.timeline(users)
     #analyzer.avg_url_dload_time(users)
-    #analyzer.avg_session_overlap(users)
+    analyzer.avg_session_overlap(users)
     
 
     return 0
