@@ -101,6 +101,8 @@ class Session():
     def hash(self):
         return self._session_id
 
+
+
 class Download():
     """Associates Downloads to each Session object. """
     def __init__(self, session, start, end):
@@ -128,15 +130,16 @@ class Download():
         return self._end
 
 
+
 class Analyzer():
     """Performs analysis operations on sessions."""
     def __init__(self, sessions):
         self._sessions = sessions
     
-    def timeline(self, sessions_sorted):
+    def timeline(self, print_sorted):
         """ Prints a chronological, intelligible sequence of events of the whole log file for reference."""
-        print("\n################################### TIMELINE #######################################")
-        for key, value in sessions_sorted.items():
+        print("################################### TIMELINE #######################################")
+        for key, value in print_sorted.items():
             print(f"\nUSERID: {key}")
             for val in value:
                 print(f"{val}")
@@ -164,8 +167,23 @@ class Analyzer():
             Overlap defined as where one website is still downloading while a second one starts downloading.
             This information can indicate how frequent a user is to open new tabs."""
         print("\n########################## AVERAGE OVERLAP PER USER #################################")
-        
-
+        for userid, sessions in sessions_sorted.items():
+            starts = []
+            for session in sessions:
+                for log in session.logs:
+                    if 1 == log.status:
+                        starts.append(log)
+            overlaps = collections.defaultdict(list)
+            for session in sessions:
+                for download in session.downloads:
+                    for start in starts:
+                        if download.start < start.timestamp < download.end and start.url != session.url:
+                            overlaps[session.userid].append(f"\n  [!] Overlap!\n\tSTART:   {download.start}\t{session.url}\n\tOVERLAP: {start.timestamp}\t{start.url}\n\tEND:     {download.end}\t{session.url}")
+            for key, value in overlaps.items():
+                print(f"\nUSERID: {key}")
+                for val in value:
+                    print(f"{val}")
+                    
 
     def avg_dload_time_before_overlap(self):
         """Determines the average time that a website starts downloading before an overlap happens."""
@@ -185,10 +203,13 @@ class Analyzer():
 def generate_sessions(logs):
     """ Returns:
             sessions -> a list of session objects
-            sessions_sorted -> a dictionary of {userid:session_objects_list}
+            sessions_sorted -> a dictionary of {userid : [session_objects_list]}
+            print_sorted -> a dictionary of {userid : "string of logs"}
     """
     sessions = {}
     sessions_sorted = collections.defaultdict(list)
+    print_sorted = collections.defaultdict(list)
+
     for log in logs:
         try:
             sessions[log.session_hash].add_log(log)
@@ -202,9 +223,10 @@ def generate_sessions(logs):
         str = f"\tHASH: {session.hash}"
         for log in session._session_logs:
             str += f"\n{log}"
-        sessions_sorted[session.userid].append(str)
+        sessions_sorted[session.userid].append(session)
+        print_sorted[session.userid].append(str)
 
-    return sorted(sessions, key=lambda session: (session.start, session.userid, session.url, session.tabid)), sessions_sorted
+    return sorted(sessions, key=lambda session: (session.start, session.userid, session.url, session.tabid)), sessions_sorted, print_sorted
 
 def parse_logs(filename:str):
     """Returns a list of parsed log_str objects, where each log_str object is a list of five strings."""
@@ -222,11 +244,11 @@ def handle_args():
 def main() -> int:
     args = handle_args()
     logs = parse_logs(args.filename)
-    sessions, sessions_sorted = generate_sessions(logs) # returns a list of Session objects and a dictionary of {userid:session_objects_list} respectively.
+    sessions, sessions_sorted, print_sorted = generate_sessions(logs) # returns a list of Session objects and a dictionary of {userid:session_objects_list} respectively.
 
     analyzer = Analyzer(sessions)
-    analyzer.timeline(sessions_sorted)
-    analyzer.avg_url_dload_time(sessions)
+    #analyzer.timeline(print_sorted)
+    #analyzer.avg_url_dload_time(sessions)
     analyzer.avg_session_overlap(sessions_sorted)
 
     return 0
