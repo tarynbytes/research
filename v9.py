@@ -223,15 +223,19 @@ class Analyzer():
                     avg_times[user.id].append(f"URL: {session.url}, TABID: {session.tabid}, Average download time: {sum(download_times) / len(download_times)}ms")
         self.print_results(avg_times)
 
-    def avg_session_overlap(self, users):
+    def avg_overlap_time(self, users):
         """Determines the average overlap time among sessions per user.
             Overlap defined as where one website is still downloading while a second one starts downloading.
             This information can indicate how frequent a user is to open new tabs."""
         print("\n########################## AVERAGE OVERLAP PER USER #################################")
         avg_overlaps = collections.defaultdict(list)
         for user in users:
+            overlap_times = []
             for overlap in user.overlaps:
-                avg_overlaps[user.id].append(f"\n  [!] Overlap!\n\tSTART:   {overlap.start}\n\tOVERLAP: {overlap.overlap_log}\n\tEND:     {overlap.end}")
+                overlap_times.append(overlap.overlap_log.timestamp - overlap.start.timestamp)
+            if overlap_times:
+                avg_overlaps[user.id].append(f"  Average overlap time: {sum(overlap_times) / len(overlap_times)}ms")
+
         self.print_results(avg_overlaps)
  
 
@@ -247,11 +251,23 @@ class Analyzer():
         """what else?"""
         pass
     
+    def print_overlaps(self, users):
+        """Nicely prints all users' overlaps."""
+        print("\n################################## USER OVERLAPS #######################################")
+        overlaps = collections.defaultdict(list)
+        for user in users:
+            for overlap in user.overlaps:
+                overlaps[user.id].append(f"  [!] Overlap\n      START: {overlap.start}\n      OVERLAP: {overlap.overlap_log}\n      END:     {overlap.end}")
+        self.print_results(overlaps)
+    
     def print_results(self, dct):
         for key, value in dct.items():
             print(f"\nUSERID: {key}")
             for val in value:
                 print(f"{val}")
+
+
+
 
 def generate_user_sessions(logs):
     """ Initializes Session objects and returns a list of User objects [corresponding to Sessions]."""
@@ -307,7 +323,7 @@ def main() -> int:
     analyzer = Analyzer(users)
     #analyzer.timeline(users)
     #analyzer.avg_url_dload_time(users)
-    analyzer.avg_session_overlap(users)
+    analyzer.avg_overlap_time(users)
     
 
     return 0
