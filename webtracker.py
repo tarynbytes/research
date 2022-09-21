@@ -3,6 +3,7 @@ import os.path
 import re
 import hashlib
 import collections
+import threading
 
 class Log():
     """Class to define the fields of a line in a log file."""
@@ -181,6 +182,8 @@ class Download():
 
 
 class Overlap():
+    """An Overlap is defined as where one website is still downloading while a second one starts downloading."""
+
     def __init__(self, user, start, overlap, end):
         self._user = user
         self._start = start
@@ -210,8 +213,7 @@ class Analyzer():
             print(user)
        
     def avg_url_dload_time(self, users):
-        """Determines the average download time for each session for each user.
-            This information can indicate connectivity speed per user."""
+        """Determines the average download time for each session for each user."""
         print("\n####################### AVERAGE DOWNLOAD TIME PER USER ##############################")
         avg_times = collections.defaultdict(list)
         for user in users:
@@ -221,36 +223,8 @@ class Analyzer():
                     download_times.append(download.end - download.start)
                 if download_times:
                     avg_times[user.id].append(f"URL: {session.url}, TABID: {session.tabid}, Average download time: {sum(download_times) / len(download_times)}ms")
-        self.print_results(avg_times)
+        self._print_results(avg_times)
 
-    def avg_overlap_time(self, users):
-        """Determines the average overlap time among sessions per user.
-            Overlap defined as where one website is still downloading while a second one starts downloading.
-            This information can indicate how frequent a user is to open new tabs."""
-        print("\n########################## AVERAGE OVERLAP PER USER #################################")
-        avg_overlaps = collections.defaultdict(list)
-        for user in users:
-            overlap_times = []
-            for overlap in user.overlaps:
-                overlap_times.append(overlap.overlap_log.timestamp - overlap.start.timestamp)
-            if overlap_times:
-                avg_overlaps[user.id].append(f"  Average overlap time: {sum(overlap_times) / len(overlap_times)}ms")
-
-        self.print_results(avg_overlaps)
- 
-
-    def avg_dload_time_before_overlap(self):
-        """Determines the average time that a website starts downloading before an overlap happens."""
-        pass
-
-    def websites_in_overlap(self):
-        """Determines how many websites there are in each user's overlaps."""
-        pass
-
-    def more(self):
-        """what else?"""
-        pass
-    
     def print_overlaps(self, users):
         """Nicely prints all users' overlaps."""
         print("\n################################## USER OVERLAPS #######################################")
@@ -258,9 +232,48 @@ class Analyzer():
         for user in users:
             for overlap in user.overlaps:
                 overlaps[user.id].append(f"  [!] Overlap\n      START: {overlap.start}\n      OVERLAP: {overlap.overlap_log}\n      END:     {overlap.end}")
-        self.print_results(overlaps)
+        self._print_results(overlaps)
+
+    def overlaps(self, users):
+        """Determines the number of overlaps per user."""
+        print("\n########################## NUMBER OVERLAPS PER USER #################################")
+        num_overlaps = collections.defaultdict(list)
+        for user in users:
+            if 0 < len(user.overlaps):
+                num_overlaps[user.id].append(f"  Number of overlaps: {len(user.overlaps)}")
+        self._print_results(num_overlaps)
+
+    def avg_overlap_time(self, users):
+        """Determines the average overlap time per user."""
+        print("\n########################## AVERAGE OVERLAP PER USER #################################")
+        avg_overlap_times = collections.defaultdict(list)
+        for user in users:
+            overlap_times = []
+            for overlap in user.overlaps:
+                overlap_times.append(overlap.overlap_log.timestamp - overlap.start.timestamp)
+            if overlap_times:
+                avg_overlap_times[user.id].append(f"  Average overlap time: {sum(overlap_times) / len(overlap_times)}ms")
+        self._print_results(avg_overlap_times)
+ 
+    '''
+    def websites_in_overlap(self, users):
+        """Determines how many websites there are in each users' overlaps."""
+        print("\n########################## WEBSITES IN USER OVERLAPS ################################")
+        for user in users:
+            urls = []
+            for overlap in user.overlaps:
+                if overlap.overlap_log.url not in urls:
+                    urls.append(overlap.overlap_log.url)
+                    print(overlap.overlap_log.url)
+    '''
+
+    def more(self):
+        """what else?"""
+        pass
     
-    def print_results(self, dct):
+    
+    def _print_results(self, dct):
+        """Prints analyses via dictionary, {userid: "result_string"}"""
         for key, value in dct.items():
             print(f"\nUSERID: {key}")
             for val in value:
@@ -297,6 +310,8 @@ def generate_user_sessions(logs):
         user_dct[user] = User(session_lst, user)
     users = list(user_dct.values())
 
+
+
     for user in users:
         user.get_starts()
         user.get_overlaps()
@@ -320,11 +335,34 @@ def main() -> int:
     args = handle_args()
     logs = parse_logs(args.filename)
     users = generate_user_sessions(logs)
+
     analyzer = Analyzer(users)
+
+    """
+    num_threads = 12
+    threads = []
+
+    chunk_size = len(analyzer.users)/num_threads
+    for thread_idx in range(num_threads):
+        thread = threading.Thread(target=analyzer.timeline, args=(users[chunk_size * thread_idx : chunk_size * thread_idx + 1],))
+        threads.append(thread)
+    
+    for thread in threads:
+        thread.start()
+    
+    print("Threads started")
+
+    for thread in threads:
+        thread.join()
+
+    print("Threads joined")
+    """
     #analyzer.timeline(users)
     #analyzer.avg_url_dload_time(users)
-    analyzer.avg_overlap_time(users)
-    
+    #analyzer.print_overlaps(users)
+    #analyzer.overlaps(users)
+    #analyzer.avg_overlap_time(users)
+    #analyzer.websites_in_overlap(users)
 
     return 0
 
