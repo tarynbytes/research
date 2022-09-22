@@ -234,7 +234,7 @@ class Analyzer():
                 overlaps[user.id].append(f"  [!] Overlap\n      START: {overlap.start}\n      OVERLAP: {overlap.overlap_log}\n      END:     {overlap.end}")
         self._print_results(overlaps)
 
-    def overlaps(self, users):
+    def number_overlaps(self, users):
         """Determines the number of overlaps per user."""
         print("\n########################## NUMBER OVERLAPS PER USER #################################")
         num_overlaps = collections.defaultdict(list)
@@ -255,22 +255,23 @@ class Analyzer():
                 avg_overlap_times[user.id].append(f"  Average overlap time: {sum(overlap_times) / len(overlap_times)}ms")
         self._print_results(avg_overlap_times)
  
-    '''
+    # Need to extend this
     def websites_in_overlap(self, users):
         """Determines how many websites there are in each users' overlaps."""
         print("\n########################## WEBSITES IN USER OVERLAPS ################################")
+        overlap_urls = collections.defaultdict(list)
         for user in users:
             urls = []
             for overlap in user.overlaps:
                 if overlap.overlap_log.url not in urls:
                     urls.append(overlap.overlap_log.url)
-                    print(overlap.overlap_log.url)
-    '''
+                if urls:
+                    overlap_urls[user.id].append(f"  Overlap URL: {overlap.overlap_log.url}")
+        self._print_results(overlap_urls)
 
     def more(self):
         """what else?"""
         pass
-    
     
     def _print_results(self, dct):
         """Prints analyses via dictionary, {userid: "result_string"}"""
@@ -310,13 +311,12 @@ def generate_user_sessions(logs):
         user_dct[user] = User(session_lst, user)
     users = list(user_dct.values())
 
-
-
     for user in users:
         user.get_starts()
         user.get_overlaps()
 
     return users
+
 
 def parse_logs(filename:str):
     """Returns a list of parsed log_str objects, where each log_str object is a list of five strings."""
@@ -338,29 +338,11 @@ def main() -> int:
 
     analyzer = Analyzer(users)
 
-    """
-    num_threads = 12
-    threads = []
-
-    chunk_size = len(analyzer.users)/num_threads
-    for thread_idx in range(num_threads):
-        thread = threading.Thread(target=analyzer.timeline, args=(users[chunk_size * thread_idx : chunk_size * thread_idx + 1],))
-        threads.append(thread)
-    
-    for thread in threads:
-        thread.start()
-    
-    print("Threads started")
-
-    for thread in threads:
-        thread.join()
-
-    print("Threads joined")
-    """
+    # To-Do: change function calls to args
     #analyzer.timeline(users)
     #analyzer.avg_url_dload_time(users)
     #analyzer.print_overlaps(users)
-    #analyzer.overlaps(users)
+    #analyzer.number_overlaps(users)
     #analyzer.avg_overlap_time(users)
     #analyzer.websites_in_overlap(users)
 
