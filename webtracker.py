@@ -107,10 +107,11 @@ class User():
 
                 self._overlap_dloads.append(Overlap(self, download.start_log, overlapping_dloads, download.end_log))
                 self._overlap_ones.append(Overlap(self, download.start_log, overlapping_starts, download.end_log))
-
+    
+    # TO-DO
     def get_dynamic_overlaps(self):
-            pass
-            
+            for index, log in enumerate(self._logs):
+                print(f"{index} -- HASH: {log.session_hash} LOG -- {log}")
 
     @property
     def sessions(self):
@@ -265,8 +266,6 @@ class Download():
 
 
 
-
-
 class TimelineAnalyzer():
     """Performs analysis operations on the sequence of events in a Log File."""
 
@@ -278,7 +277,6 @@ class TimelineAnalyzer():
         print("################################### TIMELINE #######################################")
         for user in users:
             print(user)
-
 
 
 
@@ -467,10 +465,10 @@ def generate_user_sessions(logs):
         user_dct[user] = User(session_lst, user)
     users = list(user_dct.values())
 
-    for index, user in enumerate(users):
+    for user in users:
         user.get_logs()
         user.get_starts()
-        #user.get_static_overlaps()
+        #user.get_static_overlaps() # Need to add threading
         user.get_dynamic_overlaps()
 
     return users
