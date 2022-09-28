@@ -5,8 +5,11 @@ import hashlib
 import collections
 import threading
 
+
+
 class Log():
     """Class to define the fields of a line in a log file."""
+
     def __init__(self, log_str):
         self._log_str = log_str
         self._timestamp, self._userid, self._tabid, self._url, self._status = self._log_str
@@ -49,9 +52,11 @@ class Log():
 
 class User():
     """User objects are groups of sessions associated with a particular userid."""
+
     def __init__(self, sessions, userid):
         self._sessions = sessions
         self._userid = userid
+        self._logs = []
         self._starts = []
         self._overlap_ones = []
         self._overlap_dloads = []
@@ -62,6 +67,12 @@ class User():
         for session in self._sessions:
             ret_str += f"\n{session}"
         return ret_str
+
+    def get_logs(self):
+        for session in self._sessions:
+            for log in session.logs:
+                self._logs.append(log)
+        self._logs = sorted(self._logs, key=lambda val: (val.timestamp))
 
     def get_starts(self):
         """Pulls out all logs with status of 1 for that user."""
@@ -108,6 +119,9 @@ class User():
     def id(self):
         return self._userid
     @property
+    def logs(self):
+        return self._logs
+    @property
     def starts(self):
         return self._starts
     @property
@@ -143,6 +157,7 @@ class Overlap():
 
 class Session():
     """Session objects are defined as a group of logs with the same userid, url, and tabid."""
+
     def __init__(self, session_id):
         self._session_id = session_id
         self._session_logs = []
@@ -453,8 +468,9 @@ def generate_user_sessions(logs):
     users = list(user_dct.values())
 
     for index, user in enumerate(users):
+        user.get_logs()
         user.get_starts()
-        user.get_static_overlaps()
+        #user.get_static_overlaps()
         user.get_dynamic_overlaps()
 
     return users
@@ -485,7 +501,7 @@ def main() -> int:
 
     # To-Do: change function calls to args
 
-    t.timeline(users) 
+    #t.timeline(users) 
     #d.avg_url_dload_time_per_user_sessions(users)
     #d.avg_url_dload_time_per_user(users)
 
