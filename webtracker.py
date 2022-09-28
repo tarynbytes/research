@@ -99,6 +99,7 @@ class User():
 
     def get_dynamic_overlaps(self):
             pass
+            
 
     @property
     def sessions(self):
@@ -302,6 +303,33 @@ class DownloadAnalyzer():
                 avg_url_times[user.id].append(f"URL: {url}, Average download time: {sum(times) / len(times)}ms")
         print_results(avg_url_times)
 
+
+
+
+class WebsiteAnalyzer():
+    """Performs analysis operations on Users' websites."""
+
+    def __init__(self, users):
+        self._users = users
+
+    def num_unique_websites_per_user(self, users):
+        """Determines the total number of unique websites each user visited and displays what websites."""
+        print("\n############################ WEBSITES VISITED PER USER ###################################")
+        user_websites = collections.defaultdict(list)
+        for user in users:
+            websites = []
+            for session in user.sessions:
+                if session.url not in websites:
+                    websites.append(session.url)
+            if websites:
+                ret_str = ''
+                for site in websites:
+                    ret_str += f"\t{site}\n"
+                ret_str += f"Total websites: {len(websites)}"
+                user_websites[user.id].append(f"Websites visited by user:\n{ret_str}")
+        print_results(user_websites)
+
+
     
 class OverlapAnalyzer():
     """Performs analysis operations on Users' Overlaps."""
@@ -346,32 +374,6 @@ class OverlapAnalyzer():
                     overlap_urls[user.id].append(f"  Overlap URL: {overlap.overlap_log.url}")
         print_results(overlap_urls)
     
-
-
-
-class WebsiteAnalyzer():
-    """Performs analysis operations on Users' websites."""
-
-    def __init__(self, users):
-        self._users = users
-
-    def num_unique_websites_per_user(self, users):
-        """Determines the total number of unique websites each user visited and displays what websites."""
-        print("\n############################ WEBSITES VISITED PER USER ###################################")
-        user_websites = collections.defaultdict(list)
-        for user in users:
-            websites = []
-            for session in user.sessions:
-                if session.url not in websites:
-                    websites.append(session.url)
-            if websites:
-                ret_str = ''
-                for site in websites:
-                    ret_str += f"\t{site}\n"
-                ret_str += f"Total websites: {len(websites)}"
-                user_websites[user.id].append(f"Websites visited by user:\n{ret_str}")
-        print_results(user_websites)
-
 
 
 
@@ -475,26 +477,26 @@ def main() -> int:
     logs = parse_logs(args.filename)
     users = generate_user_sessions(logs)
 
-    w = WebsiteAnalyzer(users)
     t = TimelineAnalyzer(users)
     d = DownloadAnalyzer(users)
+    w = WebsiteAnalyzer(users)
     o = OverlapAnalyzer(users)
     p = OverlapPrinter(users)
 
     # To-Do: change function calls to args
 
-    #t.timeline(users) 
+    t.timeline(users) 
     #d.avg_url_dload_time_per_user_sessions(users)
     #d.avg_url_dload_time_per_user(users)
-
-    #o.number_overlaps(users)
-    #o.avg_overlap_time(users)
 
     #w.websites_in_overlap(users)
     #w.num_unique_websites_per_user(users)
 
+    #o.number_overlaps(users)
+    #o.avg_overlap_time(users)
+
     #p.print_overlaps_for_starts(users)
-    p.print_overlaps_for_dloads(users)
+    #p.print_overlaps_for_dloads(users)
     #p.print_dynamic_overlaps(users)
 
 
