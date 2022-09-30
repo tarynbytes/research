@@ -4,7 +4,7 @@ import re
 import hashlib
 import collections
 import threading
-
+import pandas as pd
 
 
 class Log():
@@ -58,6 +58,7 @@ class User():
         self._userid = userid
         self._logs = []
         self._starts = []
+        self._dloads = []
         self._overlap_ones = []
         self._overlap_dloads = []
         self._dynamic_overlaps = []
@@ -81,6 +82,12 @@ class User():
                 if 1 == log.status:
                     self._starts.append(log)
             
+    def get_dloads(self):
+        for session in self._sessions:
+            for download in session.downloads:
+                self._dloads.append(download)
+        self._dloads = sorted(self._dloads, key=lambda val: (val.end, val.start))
+
     def get_static_overlaps(self):
         """Gets all static instances in which:
             1) a user log with status of 1 occurs between a Download.
@@ -97,7 +104,7 @@ class User():
                     if download.start < start.timestamp < download.end:
                         if start.session_hash != session.hash:
                             overlapping_starts.append(start)
-                for dload in dloads:
+                for dload in self._dloads:
                     if download.start < dload.start < download.end:
                         if dload.session_id != session.hash:
                             overlapping_dloads.append(dload)
@@ -107,11 +114,43 @@ class User():
 
                 self._overlap_dloads.append(Overlap(self, download.start_log, overlapping_dloads, download.end_log))
                 self._overlap_ones.append(Overlap(self, download.start_log, overlapping_starts, download.end_log))
-    
-    # TO-DO
+
+          
     def get_dynamic_overlaps(self):
-            for index, log in enumerate(self._logs):
-                print(f"{index} -- HASH: {log.session_hash} LOG -- {log}")
+
+        last_end  = 0
+        for dload in self._dloads:
+            if dload.end > last_end:
+                last_end = dload.end
+
+        idx = 0
+        while True:
+            try:
+                start_dload = self._dloads[idx]
+                end_dload = self._dloads[idx]
+                greatest_end = 0
+                overlaps = {}
+
+                for dload in self._dloads[idx:]:
+                    if dload.start < end_dload.end:
+                        overlaps[dload] = dload.end
+
+                if 2 <= len(overlaps):
+                    greatest_end = max(overlaps.values())
+                    target_dload = list(overlaps.keys())[list(overlaps.values()).index(greatest_end)]
+                    self._dynamic_overlaps.append(Overlap(self, start_dload, list(overlaps.keys()), target_dload))
+
+                    idx = self._dloads.index(target_dload)
+
+                else:
+                    idx += 1
+
+                if greatest_end == last_end or idx == len(self._dloads) - 1:
+                    break
+
+            except IndexError:
+                break
+        
 
     @property
     def sessions(self):
@@ -126,6 +165,9 @@ class User():
     def starts(self):
         return self._starts
     @property
+    def dloads(self):
+        return self._dloads
+    @property
     def overlap_ones(self):
         return self._overlap_ones
     @property
@@ -134,6 +176,8 @@ class User():
     @property
     def dynamic_overlaps(self):
         return self._dynamic_overlaps
+
+
 
 
 class Overlap():
@@ -186,7 +230,7 @@ class Session():
             for index, log in enumerate(self._session_logs):
                 try:
                     if 1 == self._session_logs[index].status and 2 == self._session_logs[index + 1].status:
-                        self._downloads.append(Download(self, self._session_id, log, self._session_logs[index + 1]))
+                        self._downloads.append(Download(self, self.url, self._session_id, log, self._session_logs[index + 1]))
                 except:
                     continue
 
@@ -228,8 +272,9 @@ class Session():
 class Download():
     """Associates Downloads to each Session object."""
 
-    def __init__(self, session, session_id, start_log, end_log):
+    def __init__(self, session, url, session_id, start_log, end_log):
         self._session = session
+        self._url = url
         self._session_id = session_id
         self._start_log = start_log
         self._end_log = end_log
@@ -248,6 +293,9 @@ class Download():
     @property
     def session(self):
         return self.session
+    @property
+    def url(self):
+        return self._url  
     @property
     def session_id(self):
         return self._session_id  
@@ -317,6 +365,11 @@ class DownloadAnalyzer():
         print_results(avg_url_times)
 
 
+    def percent_downloads_per_user(self, users):
+        """Out of all user logs, what percentage of logs are Downloads (a 1 status with an identified matching 2."""
+        pass
+
+
 
 
 class WebsiteAnalyzer():
@@ -350,16 +403,30 @@ class OverlapAnalyzer():
     def __init__(self, users):
         self._users = users
     
-    # Fix
-    def number_overlaps(self, users):
+    def number_dynamic_overlaps(self, users):
         """Determines the number of overlaps per user."""
         print("\n############################ NUMBER OVERLAPS PER USER ###################################")
-        num_overlaps = collections.defaultdict(list)
+        num_dynamic_overlaps = collections.defaultdict(list)
         for user in users:
-            if 0 < len(user.overlaps):
-                num_overlaps[user.id].append(f"  Number of overlaps: {len(user.overlaps)}")
-        print_results(num_overlaps)
+            if 0 < len(user.dynamic_overlaps):
+                num_dynamic_overlaps[user.id].append(f"  Number of overlaps: {len(user.dynamic_overlaps)}")
+        print_results(self, num_dynamic_overlaps)
 
+    # Fix
+    def websites_in_dynamic_overlaps(self, users):
+        """Determines how many websites there are in each users' overlaps."""
+        print("\n############################# WEBSITES IN USER OVERLAPS ###################################")
+        overlap_urls = collections.defaultdict(list)
+        for user in users:
+            for overlap in user.dynamic_overlaps:
+                urls = []
+                for dload in overlap.overlapping_starts:
+                    if dload.url not in urls:
+                        urls.append(dload.url)
+                if urls:
+                    overlap_urls[user.id].append(f"  Overlap URL: {dload.url}")
+        print_results(self, overlap_urls)
+    
     # Fix
     def avg_overlap_time(self, users):
         """Determines the average overlap time per user."""
@@ -371,23 +438,7 @@ class OverlapAnalyzer():
                 overlap_times.append(overlap.overlap_log.timestamp - overlap.start.timestamp)
             if overlap_times:
                 avg_overlap_times[user.id].append(f"  Average overlap time: {sum(overlap_times) / len(overlap_times)}ms")
-        print_results(avg_overlap_times)
- 
-    # Fix
-    def websites_in_overlap(self, users):
-        """Determines how many websites there are in each users' overlaps."""
-        print("\n############################# WEBSITES IN USER OVERLAPS ###################################")
-        overlap_urls = collections.defaultdict(list)
-        for user in users:
-            urls = []
-            for overlap in user.overlaps:
-                if overlap.overlap_log.url not in urls:
-                    urls.append(overlap.overlap_log.url)
-                if urls:
-                    overlap_urls[user.id].append(f"  Overlap URL: {overlap.overlap_log.url}")
-        print_results(overlap_urls)
-    
-
+        print_results(self, avg_overlap_times)
 
 
 class OverlapPrinter():
@@ -401,30 +452,42 @@ class OverlapPrinter():
         print("\n#################### USER DOWNLOADS OVERLAPPING WITH STARTS ##########################")
         overlaps = collections.defaultdict(list)
         for user in users:
-            print(f"\nUSER: {user.id}")
-            for overlap in user.overlap_ones:
-                if overlap.overlapping_starts:
-                    print(f"  START: {overlap.start}")
-                    for log in overlap.overlapping_starts:
-                        print(f"   Overlap: {log}")
-                    print(f"  END:   {overlap.end}\n")
+            if user.overlap_ones:
+                print(f"\nUSER: {user.id}")
+                for overlap in user.overlap_ones:
+                    if overlap.overlapping_starts:
+                        print(f"  START: {overlap.start}")
+                        for log in overlap.overlapping_starts:
+                            print(f"   Overlap: {log}")
+                        print(f"  END:   {overlap.end}\n")
     
     def print_overlaps_for_dloads(self, users):
         """Nicely prints all users' downloads that overlap with download start logs in other sessions."""
         print("\n##################### USER DOWNLOADS OVERLAPPING WITH OTHER DOWNLOADS ########################")
         overlaps = collections.defaultdict(list)
         for user in users:
-            print(f"\nUSER: {user.id}")
-            for overlap in user.overlap_dloads:
-                if overlap.overlapping_starts:
-                    print(f"  START: {overlap.start}")
-                    for dload in overlap.overlapping_starts:
-                        print(f"   Overlap: {dload.start_log}")
-                    print(f"  END:   {overlap.end}\n")
+            if user.overlap_dloads:
+                print(f"\nUSER: {user.id}")
+                for overlap in user.overlap_dloads:
+                    if overlap.overlapping_starts:
+                        print(f"  START: {overlap.start}")
+                        for dload in overlap.overlapping_starts:
+                            print(f"   Overlap: {dload.start_log}")
+                        print(f"  END:   {overlap.end}\n")
 
     def print_dynamic_overlaps(self, users):
-        pass
-
+        """Nicely prints overlap starting and ending among the sequence of a users' logs."""
+        print("\n############################# USER OVERLAP STARTS AND ENDS ##################################")
+        overlaps = collections.defaultdict(list)
+        for user in users:
+            if user.dynamic_overlaps:
+                print(f"\nUSER: {user.id}")
+                for overlap in user.dynamic_overlaps:
+                    if overlap.overlapping_starts:
+                        print(f"  OVERLAP START: {overlap.start.start}")
+                        for dload in overlap.overlapping_starts:
+                            print(f"   Overlapping log: {dload.start} {dload.end}")
+                        print(f"  OVERLAP END:   {overlap.end.end}\n")
 
 
 
@@ -468,6 +531,7 @@ def generate_user_sessions(logs):
     for user in users:
         user.get_logs()
         user.get_starts()
+        user.get_dloads()
         #user.get_static_overlaps() # Need to add threading
         user.get_dynamic_overlaps()
 
@@ -503,15 +567,15 @@ def main() -> int:
     #d.avg_url_dload_time_per_user_sessions(users)
     #d.avg_url_dload_time_per_user(users)
 
-    #w.websites_in_overlap(users)
     #w.num_unique_websites_per_user(users)
 
-    #o.number_overlaps(users)
+    o.number_dynamic_overlaps(users)
+    o.websites_in_dynamic_overlaps(users)
     #o.avg_overlap_time(users)
 
     #p.print_overlaps_for_starts(users)
     #p.print_overlaps_for_dloads(users)
-    #p.print_dynamic_overlaps(users)
+    p.print_dynamic_overlaps(users)
 
 
     return 0
