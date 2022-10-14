@@ -55,14 +55,21 @@ class User():
         self._sessions = sessions
         self._userid = userid
         self._logs = []
+        self._browsing_time = None
         self._starts = []
+        self._urls_visited = []
         self._dloads = []
+        self._urls_in_dloads = []
         self._percent_dloads = None
+        self._avg_dload_time_per_session = []
+        self._avg_session_time = None
+        self._avg_dload_time_per_url = []
         self._overlaps = []
         self._percent_overlaps = None
-        self._urls_visited = []
-        self._avg_dload_time_per_session = []
-        self._avg_dload_time_per_url = []
+        self._urls_in_overlaps = []
+        self._urls_per_overlap = []
+        self._avg_overlap_time = None
+        self._avg_time_between_overlaps = None
 
 
     def __str__(self):
@@ -77,41 +84,55 @@ class User():
                 self._logs.append(log)
         self._logs = sorted(self._logs, key=lambda val: (val.timestamp))
 
+    def get_browsing_time(self):
+        self._browsing_time = max(log.timestamp for log in self._logs) - min(log.timestamp for log in self._logs)
+
     def get_starts(self):
-        """Pulls out all logs with status of 1 for that user."""
         for session in self._sessions:
             for log in session._session_logs:
                 if 1 == log.status:
                     self._starts.append(log)
-            
+
+    def get_all_urls_visited(self):
+        for session in self._sessions:
+            if session.url not in self._urls_visited:
+                self._urls_visited.append(session.url)
+
     def get_dloads(self):
         for session in self._sessions:
             for download in session.downloads:
                 self._dloads.append(download)
+        self._dloads = sorted(self._dloads, key=lambda val: (val.end, val.start))
 
+    def get_percent_dloads(self):
+        if 0 < len(self._dloads):
+            self._percent_dloads = round((len(self._dloads) *2 / len(self._logs) *100), 2)
+
+    def get_urls_in_dloads(self):
+        self._urls_in_dloads = [dload.url for dload in self._dloads if dload.url not in self._urls_in_dloads]
+
+    def get_avg_dload_time_per_session(self):
+        for session in self._sessions:
             if session.avg_dload_time is not None:
-                dct = {"Session Hash" : session.hash, "Average dload time" : session.avg_dload_time}
+                dct = {"Session Hash" : session.hash, "Average dload time" : round((session.avg_dload_time), 2)}
                 self._avg_dload_time_per_session.append(dct)
 
-        self._dloads = sorted(self._dloads, key=lambda val: (val.end, val.start))
-        
-        if 0 < len(self._dloads):
-            self._percent_dloads = len(self._dloads) *2 / len(self._logs) *100
+    def get_avg_session_time(self):
+        if 0 < len(self._sessions):
+            self._avg_session_time = round((sum(session.duration for session in self._sessions) / len(self._sessions)), 2)
 
+    def get_avg_dload_time_per_url(self):
         for url in self._urls_visited:
             avg_times = collections.defaultdict(list)
             for session in self._sessions:
                 if session.avg_dload_time is not None:
                     if url == session.url:
                         avg_times[url].append(session.avg_dload_time)
-
             for url, times in avg_times.items():
-                dct = {"URL" : url, "Average dload time" : (sum(times) / len(times))}
+                dct = {"URL" : url, "Average dload time" : round((sum(times) / len(times)), 2)}
                 self._avg_dload_time_per_url.append(dct)
 
-
     def get_overlaps(self):
-
         last_end  = 0
         for dload in self._dloads:
             if dload.end > last_end:
@@ -144,17 +165,40 @@ class User():
 
             except IndexError:
                 break
-        
+
+    def get_percent_overlaps(self):
         if 0 < len(self._overlaps):
             overlap_logs = 0
             for overlap in self._overlaps:
                 overlap_logs += len(overlap.overlapping_starts)
-            self._percent_overlaps = overlap_logs / len(self._logs) *100
+            self._percent_overlaps = round((overlap_logs / len(self._logs) *100), 2)
 
-    def get_urls_visited(self):
-        for session in self._sessions:
-            if session.url not in self._urls_visited:
-                self._urls_visited.append(session.url)
+    def get_urls_in_overlaps(self):
+        for overlap in self._overlaps:
+            self._urls_in_overlaps = [url for url in overlap.urls if url not in self._urls_in_overlaps]
+
+    def get_urls_per_overlap(self):
+        for i, overlap in enumerate(self._overlaps):
+            if overlap.urls is not None:
+                dct = {f"Overlap" : i+1, "URLs" : overlap.urls}
+                self._urls_per_overlap.append(dct)
+    
+    def get_avg_overlap_time(self):
+        if 0 < len(self._overlaps):
+            self._avg_overlap_time = round((sum(overlap.duration for overlap in self._overlaps) / len(self._overlaps)), 2)
+
+    def get_avg_time_between_overlaps(self):
+        time_between_overlaps = []
+        idx = 0
+        if 2 <= len(self._overlaps):
+            while True:
+                if idx == len(self.overlaps) - 1:
+                    break
+                time_between_overlaps.append(self.overlaps[idx+1].start.start - self.overlaps[idx].end.end)
+                idx += 1
+            self._avg_time_between_overlaps = round((sum(time_between_overlaps) / len(time_between_overlaps)), 2)
+        
+
 
     @property
     def sessions(self):
@@ -166,8 +210,14 @@ class User():
     def logs(self):
         return self._logs
     @property
+    def browsing_time(self):
+        return self._browsing_time
+    @property
     def starts(self):
         return self._starts
+    @property
+    def urls_visited(self):
+        return self._urls_visited
     @property
     def dloads(self):
         return self._dloads
@@ -175,20 +225,36 @@ class User():
     def percent_dloads(self):
         return self._percent_dloads
     @property
+    def urls_in_dloads(self):
+        return self._urls_in_dloads
+    @property
+    def avg_dload_time_per_session(self):
+        return self._avg_dload_time_per_session
+    @property
+    def avg_session_time(self):
+        return self._avg_session_time
+    @property
+    def avg_dload_time_per_url(self):
+        return self._avg_dload_time_per_url
+    @property
     def overlaps(self):
         return self._overlaps
     @property
     def percent_overlaps(self):
         return self._percent_overlaps
     @property
-    def urls_visited(self):
-        return self._urls_visited
+    def urls_in_overlaps(self):
+        return self._urls_in_overlaps
     @property
-    def avg_dload_time_per_session(self):
-        return self._avg_dload_time_per_session
+    def urls_per_overlap(self):
+        return self._urls_per_overlap
     @property
-    def avg_dload_time_per_url(self):
-        return self._avg_dload_time_per_url
+    def avg_overlap_time(self):
+        return self._avg_overlap_time
+    @property
+    def avg_time_between_overlaps(self):
+        return self._avg_time_between_overlaps
+
 
 class Overlap():
     """An Overlap is defined as where one website is still downloading while a second one starts downloading."""
@@ -198,6 +264,11 @@ class Overlap():
         self._start = start
         self._overlapping_starts = overlapping_starts
         self._end = end
+        self._urls = []
+        self._duration = self._end.end - self._start.start
+
+    def get_urls(self):
+        self._urls = [log.url for log in self._overlapping_starts if log.url not in self._urls]
 
     @property
     def start(self):
@@ -208,6 +279,12 @@ class Overlap():
     @property
     def end(self):
         return self._end
+    @property
+    def urls(self):
+        return self._urls
+    @property
+    def duration(self):
+        return self._duration
 
 
 class Session():
@@ -220,13 +297,17 @@ class Session():
         self.url = None
         self.tabid = None
         self._start = None
+        self._end = None
         self._downloads = []
         self._avg_dload_time = None
+        self._duration = None
 
 
     def sort_logs(self):
         self._session_logs = sorted(self._session_logs, key=lambda val: (val.userid, val.url, val.tabid, val.timestamp))
         self._start = self._session_logs[0].timestamp
+        self._end = self._session_logs[-1].timestamp
+
 
     def add_log(self, log):
         if not self.userid:
@@ -251,6 +332,10 @@ class Session():
         if download_times:
             self._avg_dload_time = sum(download_times) / len(download_times)
 
+    def get_duration(self):
+         self._duration = self._end - self._start
+    
+
     def __str__(self):
         ret_str = f"\tSESSION HASH:{self._session_id}"
         for log in self._session_logs:
@@ -269,6 +354,9 @@ class Session():
     def start(self):
         return self._start
     @property
+    def end(self):
+        return self._end
+    @property
     def logs(self):
         return self._session_logs
     @property
@@ -277,7 +365,9 @@ class Session():
     @property
     def avg_dload_time(self):
         return self._avg_dload_time
-
+    @property
+    def duration(self):
+        return self._duration
 
 
 class Download():
@@ -293,7 +383,7 @@ class Download():
         self._end = end_log.timestamp
 
     def __contains__(self, download):
-        if (isinstance(download, Downloads)):
+        if (isinstance(download, Download)):
             if (download.start <= self.start <= download.end) or (download.start <= self.end <= download.end):
                 return True 
         return False
@@ -324,83 +414,6 @@ class Download():
         return self._end
 
 
-
-class OverlapAnalyzer():
-    """Performs analysis operations on Users' Overlaps."""
-
-    def __init__(self, users):
-        self._users = users
-    
-    def print_overlaps(self, users):
-        """Nicely prints overlap starting and ending among the sequence of a users' logs."""
-        print("\n############################# USER OVERLAP STARTS AND ENDS ##################################")
-        overlaps = collections.defaultdict(list)
-        for user in users:
-            if user.overlaps:
-                print(f"\nUSER: {user.id}")
-                for overlap in user.overlaps:
-                    if overlap.overlapping_starts:
-                        print(f"  OVERLAP START: {overlap.start.start}")
-                        for dload in overlap.overlapping_starts:
-                            print(f"   Overlapping log: {dload.start} {dload.end}")
-                        print(f"  OVERLAP END:   {overlap.end.end}\n")
-
-
-    def unique_websites_per_overlap(self, users):
-        """Determines the unique URLs in each users' overlaps."""
-        print("\n############################# WEBSITES IN USER OVERLAPS ###################################")
-        urls_per_overlap = collections.defaultdict(list)
-        for user in users:
-            for i, overlap in enumerate(user.overlaps):
-                urls = []
-                ret_str = ''
-                for dload in overlap.overlapping_starts:
-                    if dload.url not in urls:
-                        urls.append(dload.url)
-                if urls:
-                    for url in urls:
-                        ret_str += f"\n\tURL: {url}"
-                urls_per_overlap[user.id].append(f"  Overlap {i+1}: {ret_str}")
-        print_results(urls_per_overlap)
-    
-    def unique_websites_out_of_all_overlaps(self, users):
-        """Determines the unique URLs in each users' overlaps."""
-        print("\n############################# WEBSITES IN USER OVERLAPS ###################################")
-        overlap_urls = collections.defaultdict(list)
-        for user in users:
-            if 0 < len(user.overlaps):
-                urls = []
-                ret_str = ''
-                for overlap in user.overlaps:
-                    for dload in overlap.overlapping_starts:
-                        if dload.url not in urls:
-                            urls.append(dload.url)
-                if urls:
-                    for url in urls:
-                        ret_str += f"\tURL: {url}\n"
-                overlap_urls[user.id].append(f"{ret_str}")
-        print_results(overlap_urls)
-
-    def avg_overlap_time_per_user(self, users):
-        """Determines the average overlap time per user."""
-        print("\n############################ AVERAGE OVERLAP PER USER ####################################")
-        avg_overlap_times = collections.defaultdict(list)
-        for user in users:
-            overlap_times = []
-            for overlap in user.overlaps:
-                overlap_times.append(overlap.end.end - overlap.start.start)
-            if overlap_times:
-                avg_overlap_times[user.id].append(f"  Average overlap time: {sum(overlap_times) / len(overlap_times)}ms")
-        print_results(avg_overlap_times)
-
-    # TO-DO
-    def avg_overlapping_times_per_overlap_per_user(self, users):
-        """Determines the average time before an overlapping log starts per each overlap per user."""
-        print("\n############################ AVERAGE OVERLAP PER USER ####################################")
-        avg_overlap_times = collections.defaultdict(list)
-
-        print_results(avg_overlap_times)
-
         
 
 class Graph():
@@ -424,15 +437,6 @@ class Graph():
 
 
 
-
-def print_results(dct):
-    """Prints analyses via dictionary, {userid: "result_string"}"""
-    for key, value in dct.items():
-        print(f"\nUSERID: {key}")
-        for val in value:
-            print(f"{val}")
-
-
 def generate_user_sessions(logs):
     """ Initializes Session objects and returns a list of User objects [corresponding to Sessions]."""
     sessions = {}
@@ -452,6 +456,7 @@ def generate_user_sessions(logs):
         session.sort_logs()
         session.get_downloads()
         session.get_avg_dload_time()
+        session.get_duration()
 
     user_dct = {}
     for user in users:
@@ -464,12 +469,39 @@ def generate_user_sessions(logs):
 
     for user in users:
         user.get_logs()
-        user.get_urls_visited()
+        user.get_browsing_time()
         user.get_starts()
+        user.get_all_urls_visited()
         user.get_dloads()
+        user.get_percent_dloads()
+        user.get_urls_in_dloads()
+        user.get_avg_dload_time_per_session()
+        user.get_avg_session_time()
+        user.get_avg_dload_time_per_url()
         user.get_overlaps()
+        for overlap in user.overlaps:
+            overlap.get_urls()
+        user.get_percent_overlaps()
+        user.get_urls_in_overlaps()
+        user.get_urls_per_overlap()
+        user.get_avg_overlap_time()
+        user.get_avg_time_between_overlaps()
+
+        #print_overlaps(user)
 
     return users
+
+
+def print_overlaps(user):
+    overlaps = collections.defaultdict(list)
+    if user.overlaps:
+        print(f"\nUSER: {user.id}")
+        for overlap in user.overlaps:
+            if overlap.overlapping_starts:
+                print(f"  OVERLAP START: {overlap.start.start}")
+                for dload in overlap.overlapping_starts:
+                    print(f"   Overlapping log: {dload.start} {dload.end}")
+                print(f"  OVERLAP END:   {overlap.end.end}\n")
 
 def parse_logs(filename:str):
     """Returns a list of parsed log_str objects, where each log_str object is a list of five strings."""
@@ -489,44 +521,45 @@ def main() -> int:
     logs = parse_logs(args.filename)
     users = generate_user_sessions(logs)
 
-    o = OverlapAnalyzer(users)
-
-    fields = ['user', 'num_logs', 'num_sessions', 'num_dloads', 'percent_dloads', 'num_urls_visited', 'urls_visited',
-        'avg_dload_time_per_url', 'avg_dload_time_per_session', 'num_overlaps', 'percent_overlaps']
+    fields = ['user', 'num_logs', 'num_sessions', 'browsing_time', 'num_dloads', 'percent_dloads', 'num_urls_visited', 'urls_visited', 'urls_in_dloads',
+        'avg_dload_time_per_url', 'avg_dload_time_per_session', 'avg_session_time', 'num_overlaps', 'percent_overlaps', 'urls_in_overlaps', 'urls_per_overlap',
+        'avg_overlap_time', 'avg_time_between_overlaps', 'avg_time_between_overlapping_logs_per_overlap', 'avg_time_between_overlapping_logs_per_all_overlaps']
 
     rows = []
     for user in users:
         dct = {
-            "user" : user.id,
-            "num_logs" : len(user.logs),
-            "num_sessions" : len(user.sessions),
-            "num_dloads" : len(user.dloads),
-            "percent_dloads" : user.percent_dloads,
-            "num_urls_visited" : len(user.urls_visited),
-            "urls_visited" : user.urls_visited,
-            "avg_dload_time_per_url" : user.avg_dload_time_per_url,
-            "avg_dload_time_per_session" : user.avg_dload_time_per_session,
-            "num_overlaps" : len(user.overlaps),
-            "percent_overlaps" : user.percent_overlaps,
+            "user" : user.id, # --------------------------------------------------- # User ID
+            "num_logs" : len(user.logs), # ---------------------------------------- # How many logs per user
+            "num_sessions" : len(user.sessions), # -------------------------------- # How many sessions per user (logs with same URL and TABID)
+            "browsing_time" : user.browsing_time, # ------------------------------- # Duration of first timestamp to last timestamp of user logs
+            "num_dloads" : len(user.dloads), # ------------------------------------ # How many downloads per user (status 1 log with corresponding status 2 log)
+            "percent_dloads" : user.percent_dloads, # ----------------------------- # What percent of user logs are downloads
+            "num_urls_visited" : len(user.urls_visited), # ------------------------ # Number of unique websites visited per user
+            "urls_visited" : user.urls_visited, # --------------------------------- # The URL hashes of unique websites visited per user
+            "urls_in_dloads" : user._urls_in_dloads, # ---------------------------- # The unique URLs involved in a download
+
+            "avg_dload_time_per_url" : user.avg_dload_time_per_url, # ------------- # Average download time per unique url
+            "avg_dload_time_per_session" : user.avg_dload_time_per_session, # ----- # Average download time per session
+            "avg_session_time" : user.avg_session_time, # --------------------------# Average time a session lasts
+            "num_overlaps" : len(user.overlaps), # -------------------------------- # Number of user overlaps
+            "percent_overlaps" : user.percent_overlaps, # ------------------------- # What percent of user logs are involved in an overlap
+            "urls_in_overlaps" : user.urls_in_overlaps, # ------------------------- # Unique websites in all overlaps combined
+            "urls_per_overlap" : user.urls_per_overlap, # ------------------------- # Unique websites involved per overlap
+            
+            "avg_overlap_time" : user.avg_overlap_time, # ------------------------- # Average time an overlap lasts
+            "avg_time_between_overlaps" : user.avg_time_between_overlaps, # ------- # Average time between end and start of a new overlap
+            "avg_time_between_overlapping_logs_per_overlap" : [], # --------------- # Average time between the start of an overlapping log within each overlap
+            "avg_time_between_overlapping_logs_per_all_overlaps" : [] # ----------- # Average time between the start of an overlapping log for all overlaps combined
+            # --------------------------------------------------------------------- # Sequential intervals of overlaps --> create via graph
         }
         rows.append(dct)
 
-    generic_data = Graph(users, fields, rows, "generic_data.csv")
+
+    generic_data = Graph(users, fields, rows, "user_data.csv")
     generic_data.create_csv()
 
-    ''' Graphs '''
-
-    ''' Each user's average time an overlap lasts            : user, avgoverlaptime '''
-        #o.avg_overlap_time_per_user(users)
-    ''' Each user's average time between overlapping logs    : user, avgtime peroverlap '''
-        #o.avg_overlapping_times_per_overlap_per_user(users) # TO DO
-    ''' Websites involved in overlap for each user            : user, overlaps... '''
-        #o.unique_websites_per_overlap(users)
-    ''' Unique websites in all overlaps combined per user    : user, websites '''
-        #o.unique_websites_out_of_all_overlaps(users)
-    ''' Each user's sequential intervals of overlaps         : user, overlaps '''
-        #
-
+    #o.print_overlaps(users)
+    
     return 0
 
 if __name__ == "__main__":
