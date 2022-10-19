@@ -3,11 +3,9 @@ import re
 import hashlib
 import collections
 import csv
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
 from tqdm import tqdm
-from dash import Dash, dcc, html, Input, Output
+import pandas as pd
+from dash import Dash, dcc, html
 import plotly.express as px
 import pandas as pd
 
@@ -75,12 +73,18 @@ class User():
         self._avg_dload_time_per_url = []
         self._overlaps = []
         self._percent_overlaps = None
-        self._urls_in_overlaps = []
         self._urls_per_overlap = []
+        self._urls_per_overlaps = []
+        self._num_urls_per_overlap = []
+        self._avg_num_urls_per_overlaps = []
+        self._overlapping_url_per_overlap = []
+        self._avg_overlapping_url_per_overlaps = None
+        self._overlap_time = []
         self._avg_overlap_time = None
         self._avg_time_between_overlaps = None
         self._time_before_overlap_starts_per_overlap = []
         self._avg_time_before_overlap_starts = None
+        self._visualized_overlaps = None
 
 
     def __str__(self):
@@ -185,16 +189,34 @@ class User():
                 overlap_logs += len(overlap.overlapping_starts)
             self._percent_overlaps = round((overlap_logs / len(self._logs) *100), 2)
 
-    def get_urls_in_overlaps(self):
-        for overlap in self._overlaps:
-            self._urls_in_overlaps = [url for url in overlap.urls if url not in self._urls_in_overlaps]
+    def get_num_urls_per_overlap(self):
+        pass
+        
+    def get_avg_num_urls_per_overlaps(self):
+        pass
+
+    def get_overlapping_url_per_overlap(self):
+        pass
+
+    def get_avg_overlapping_url_per_overlaps(self):
+        pass
 
     def get_urls_per_overlap(self):
         for i, overlap in enumerate(self._overlaps):
             if overlap.urls is not None:
                 dct = {f"Overlap" : i+1, "URLs" : overlap.urls}
                 self._urls_per_overlap.append(dct)
-    
+
+    def get_urls_per_overlaps(self):
+        for overlap in self._overlaps:
+            self._urls_per_overlaps = [url for url in overlap.urls if url not in self._urls_per_overlaps]
+
+    def get_overlap_time(self):
+        if 0 < len(self._overlaps):
+            for i, overlap in enumerate(self._overlaps):
+                dct = {f"Overlap" : i+1, "Duration" : overlap.duration}
+                self._overlap_time.append(dct)
+
     def get_avg_overlap_time(self):
         if 0 < len(self._overlaps):
             self._avg_overlap_time = round((sum(overlap.duration for overlap in self._overlaps) / len(self._overlaps)), 2)
@@ -219,7 +241,9 @@ class User():
     def get_avg_time_before_overlap_starts(self):
         if 0 < len(self._overlaps):
             self._avg_time_before_overlap_starts = round((sum(overlap.time_before_overlap_starts for overlap in self._overlaps) / len(self._overlaps)), 2)
-
+    
+    def get_visualized_overlaps(self):
+        pass
 
     @property
     def sessions(self):
@@ -264,11 +288,26 @@ class User():
     def percent_overlaps(self):
         return self._percent_overlaps
     @property
-    def urls_in_overlaps(self):
-        return self._urls_in_overlaps
+    def num_urls_per_overlap(self):
+        return self._num_urls_per_overlap
+    @property
+    def avg_num_urls_per_overlaps(self):
+        return self._avg_num_urls_per_overlaps
+    @property
+    def overlapping_url_per_overlap(self):
+        return self._overlapping_url_per_overlap
+    @property
+    def avg_overlapping_url_per_overlaps(self):
+        return self._avg_overlapping_url_per_overlaps
     @property
     def urls_per_overlap(self):
         return self._urls_per_overlap
+    @property
+    def urls_per_overlaps(self):
+        return self._urls_per_overlaps
+    @property
+    def overlap_time(self):
+        return self._overlap_time
     @property
     def avg_overlap_time(self):
         return self._avg_overlap_time
@@ -281,7 +320,9 @@ class User():
     @property
     def avg_time_before_overlap_starts(self):
         return self._avg_time_before_overlap_starts
-
+    @property
+    def visualized_overlaps(self):
+        return self._visualized_overlaps
 
 
 class Overlap():
@@ -462,8 +503,13 @@ class Graph():
         self._rows = rows
         self._csvfile = csvfile
         self._app = app
-        self._df = pd.read_csv(self._csvfile)
+        self._df = None
         self._figlst = []
+        self._children = []
+
+
+    def get_df(self):
+        self._df = pd.read_csv(self._csvfile)
 
     def create_csv(self):
         with open(self._csvfile, 'w') as f:
@@ -474,19 +520,68 @@ class Graph():
     def create_json(self):
         pass
 
-    def get_figs(self):
+    def get_default_figures(self):
         for field in tqdm(self._fields[1:], desc='Getting figs'):
-            self._figlst.append(px.line(self._df, x='user', y=f'{field}'))
+            self._figlst.append(px.scatter(self._df, x='user', y=f'{field}'))
+
+    def get_graphs(self):
+            # num_logs
+            self._children.append(html.Div(dcc.Graph(id='graph1', figure=self._figlst[0])))
+            # browsing_time
+            self._children.append(html.Div(dcc.Graph(id='graph2', figure=self._figlst[1])))
+            # num_sessions
+            self._children.append(html.Div(dcc.Graph(id='graph3', figure=self._figlst[2])))
+            #avg_session_time
+            self._children.append(html.Div(dcc.Graph(id='graph4', figure=self._figlst[3])))
+            #avg_dload_time_per_session
+            self._children.append(html.Div(dcc.Graph(id='graph5', figure=self._figlst[4])))
+            # num_dloads
+            self._children.append(html.Div(dcc.Graph(id='graph6', figure=self._figlst[5])))
+            # percent_dloads
+            self._children.append(html.Div(dcc.Graph(id='graph7', figure= px.pie(self._df, names='user', values=f'{self._fields[6]}', title ="Percent of user logs that consist of a download."))))
+            # urls_in_dloads
+            self._children.append(html.Div(dcc.Graph(id='graph8', figure=self._figlst[7])))
+            # num_urls_visited
+            self._children.append(html.Div(dcc.Graph(id='graph9', figure=self._figlst[8])))
+            # urls_visited
+            self._children.append(html.Div(dcc.Graph(id='graph10', figure=self._figlst[9])))
+            # avg_dload_time_per_url
+            self._children.append(html.Div(dcc.Graph(id='graph11', figure=self._figlst[10])))
+            # num_overlaps
+            self._children.append(html.Div(dcc.Graph(id='graph12', figure=self._figlst[11])))
+            ## percent_overlaps
+            self._children.append(html.Div(dcc.Graph(id='graph13', figure= px.pie(self._df, names='user', values=f'{self._fields[12]}', title ="Percent of user logs that involve an overlap."))))
+            # overlap_time
+            self._children.append(html.Div(dcc.Graph(id='graph14', figure=self._figlst[13])))
+            # avg_overlap_time
+            self._children.append(html.Div(dcc.Graph(id='graph15', figure=self._figlst[14])))
+            # urls_per_overlap
+            self._children.append(html.Div(dcc.Graph(id='graph16', figure=self._figlst[15])))
+            # urls_per_overlaps
+            self._children.append(html.Div(dcc.Graph(id='graph17', figure=self._figlst[16])))
+            # num_urls_per_overlap
+            self._children.append(html.Div(dcc.Graph(id='graph18', figure=self._figlst[17])))
+            # avg_num_urls_per_overlaps
+            self._children.append(html.Div(dcc.Graph(id='graph19', figure=self._figlst[18])))
+            # overlapping_url_per_overlap
+            self._children.append(html.Div(dcc.Graph(id='graph20', figure=self._figlst[19])))
+            # avg_overlapping_url_per_overlaps
+            self._children.append(html.Div(dcc.Graph(id='graph21', figure=self._figlst[20])))
+            # avg_time_between_overlaps
+            self._children.append(html.Div(dcc.Graph(id='graph22', figure=self._figlst[21])))
+            # time_before_overlap_starts_per_overlap
+            self._children.append(html.Div(dcc.Graph(id='graph23', figure=self._figlst[22])))
+            # avg_time_before_overlap_starts
+            self._children.append(html.Div(dcc.Graph(id='graph24', figure=self._figlst[23])))
+            # visualized_overlaps
+            self._children.append(html.Div(dcc.Graph(id='graph25', figure=self._figlst[24]))) 
 
     def init_app(self):
-        children = []
-        for idx, fig in tqdm(enumerate(self._figlst), desc='Generating graphs'):
-            children.append(html.Div(dcc.Graph(id=f'graph{idx}', figure=fig)))
-        self._app.layout = html.Div(children)
+        self._app.layout = html.Div(self._children)
+    
 
 
-
-def generate_user_sessions(logs):
+def generate_user_info(logs):
     """ Initializes Session objects and returns a list of User objects [corresponding to Sessions]."""
     sessions = {}
     users = []
@@ -526,18 +621,26 @@ def generate_user_sessions(logs):
         user.get_urls_in_dloads()
         user.get_avg_dload_time_per_session()
         user.get_avg_session_time()
+
         user.get_avg_dload_time_per_url()
+
         user.get_overlaps()
         for overlap in user.overlaps:
             overlap.get_urls()
             overlap.get_time_before_overlap_starts()
         user.get_percent_overlaps()
-        user.get_urls_in_overlaps()
-        user.get_urls_per_overlap()
+        user.get_overlap_time()
         user.get_avg_overlap_time()
+        user.get_urls_per_overlap()
+        user.get_urls_per_overlaps()
+        user.get_num_urls_per_overlap()
+        user.get_avg_num_urls_per_overlaps()
+        user.get_overlapping_url_per_overlap()
+        user.get_avg_overlapping_url_per_overlaps()
         user.get_avg_time_between_overlaps()
         user.get_time_before_overlap_starts_per_overlap()
         user.get_avg_time_before_overlap_starts()
+        user.get_visualized_overlaps()
 
     return users
 
@@ -568,52 +671,61 @@ def handle_args():
 def main() -> int:
     args = handle_args()
     logs = parse_logs(args.filename)
-    users = generate_user_sessions(logs)
+    users = generate_user_info(logs)
 
-    fields = ['user', 'num_logs', 'num_sessions', 'browsing_time', 'num_dloads', 'percent_dloads', 'num_urls_visited', 'urls_visited', 'urls_in_dloads',
-        'avg_dload_time_per_url', 'avg_dload_time_per_session', 'avg_session_time', 'num_overlaps', 'percent_overlaps', 'urls_in_overlaps', 'urls_per_overlap',
-        'avg_overlap_time', 'avg_time_between_overlaps', 'time_before_overlap_starts_per_overlap', 'avg_time_before_overlap_starts']
+    fields = ['user', 'num_logs', 'browsing_time', 'num_sessions', 'avg_session_time', 'avg_dload_time_per_session', 'num_dloads', 'percent_dloads',
+        'urls_in_dloads', 'num_urls_visited', 'urls_visited', 'avg_dload_time_per_url', 'num_overlaps', 'percent_overlaps', 'overlap_time',
+        'avg_overlap_time', 'urls_per_overlap', 'urls_per_overlaps', 'num_urls_per_overlap', 'avg_num_urls_per_overlaps', 'overlapping_url_per_overlap',
+        'avg_overlapping_url_per_overlaps', 'avg_time_between_overlaps', 'time_before_overlap_starts_per_overlap', 'avg_time_before_overlap_starts', 'visualized_overlaps']
 
     rows = []
     for user in tqdm(users, desc='Populating CSV'):
         dct = {
-            "user" : user.id, # --------------------------------------------------------------------- # User ID
-            "num_logs" : len(user.logs), # ---------------------------------------------------------- # How many logs per user
-            "num_sessions" : len(user.sessions), # -------------------------------------------------- # How many sessions per user (logs with same URL and TABID)
-            "browsing_time" : user.browsing_time, # ------------------------------------------------- # Duration of first timestamp to last timestamp of user logs
-            "num_dloads" : len(user.dloads), # ------------------------------------------------------ # How many downloads per user (status 1 log with corresponding status 2 log)
-            "percent_dloads" : user.percent_dloads, # ----------------------------------------------- # What percent of user logs are downloads
-            "num_urls_visited" : len(user.urls_visited), # ------------------------------------------ # Number of unique websites visited per user
-            "urls_visited" : user.urls_visited, # ----------------------------------------------------# The URL hashes of unique websites visited per user
-            "urls_in_dloads" : user._urls_in_dloads, # ---------------------------------------------- # The unique URLs involved in a download
 
-            "avg_dload_time_per_url" : user.avg_dload_time_per_url, # ------------------------------- # Average download time per unique url
-            "avg_dload_time_per_session" : user.avg_dload_time_per_session, # ----------------------- # Average download time per session
-            "avg_session_time" : user.avg_session_time, # --------------------------------------------# Average time a session lasts
-            "num_overlaps" : len(user.overlaps), # -------------------------------------------------- # Number of user overlaps
-            "percent_overlaps" : user.percent_overlaps, # ------------------------------------------- # What percent of user logs are involved in an overlap
-            "urls_in_overlaps" : user.urls_in_overlaps, # ------------------------------------------- # Unique websites in all overlaps combined
-            "urls_per_overlap" : user.urls_per_overlap, # ------------------------------------------- # Unique websites involved per overlap
+            # User info
+            "user" : user.id, # ------------------------------------------------------------------------- # User ID
+            "num_logs" : len(user.logs), # -------------------------------------------------------------- # How many logs per user
+            "browsing_time" : user.browsing_time, # ----------------------------------------------------- # Duration of first timestamp to last timestamp of user logs
 
-            "avg_overlap_time" : user.avg_overlap_time, # ------------------------------------------- # Average time an overlap lasts
-            "avg_time_between_overlaps" : user.avg_time_between_overlaps, # ------------------------- # Average time between end and start of a new overlap
-            "time_before_overlap_starts_per_overlap" : user.time_before_overlap_starts_per_overlap, #-# the time before overlap starts for each overlap
-            "avg_time_before_overlap_starts" : user.avg_time_before_overlap_starts # --------------- # the average time before overlap starts for all overlaps combined  
+            # Session info
+            "num_sessions" : len(user.sessions), # ------------------------------------------------------ # How many sessions per user (logs with same URL and TABID)
+            "avg_session_time" : user.avg_session_time, # ------------------------------------------------# Average time a session lasts
+            "avg_dload_time_per_session" : user.avg_dload_time_per_session, # --------------------------- # Average download time per session
+
+            # Download info
+            "num_dloads" : len(user.dloads), # ---------------------------------------------------------- # How many downloads per user (status 1 log with corresponding status 2 log)
+            "percent_dloads" : user.percent_dloads, # --------------------------------------------------- # What percent of user logs are downloads
+            "urls_in_dloads" : user._urls_in_dloads, # -------------------------------------------------- # The unique URLs involved in a download
+
+            # URL info
+            "num_urls_visited" : len(user.urls_visited), # ---------------------------------------------- # Number of unique websites visited per user
+            "urls_visited" : user.urls_visited, # --------------------------------------------------------# The URL hashes of unique websites visited per user
+            "avg_dload_time_per_url" : user.avg_dload_time_per_url, # ----------------------------------- # Average download time per unique url
+
+            # Overlap info
+            "num_overlaps" : len(user.overlaps), # ------------------------------------------------------ # Number of user overlaps
+            "percent_overlaps" : user.percent_overlaps, # ----------------------------------------------- # What percent of user logs are involved in an overlap
+            "overlap_time" : user.overlap_time, # ------------------------------------------------------- # Time an overlap lasts
+            "avg_overlap_time" : user.avg_overlap_time, # ----------------------------------------------- # Average time an overlap lasts
+            "urls_per_overlap" : user.urls_per_overlap, # ----------------------------------------------- # Unique websites involved per overlap
+            "urls_per_overlaps" : user.urls_per_overlaps, # --------------------------------------------- # Unique websites in all overlaps combined
+            "num_urls_per_overlap" : user.num_urls_per_overlap, # --------------------------------------- # Number of URLs per overlap in format such as (2 + 3 + 2)/3 = 2.33.
+            "avg_num_urls_per_overlaps" : user.avg_num_urls_per_overlaps, # ----------------------------- # Gets average number of URLs per overlaps combined
+            "overlapping_url_per_overlap" : user.overlapping_url_per_overlap,  # ------------------------ # The URL that first creates an overlap per overlap
+            "avg_overlapping_url_per_overlaps" : user.avg_overlapping_url_per_overlaps, # ----------------# The average URL that creates overlap
+            "avg_time_between_overlaps" : user.avg_time_between_overlaps, # ----------------------------- # Average time between end and start of a new overlap
+            "time_before_overlap_starts_per_overlap" : user.time_before_overlap_starts_per_overlap, # --- # The time before overlap starts for each overlap
+            "avg_time_before_overlap_starts" : user.avg_time_before_overlap_starts, # ------------------- # The average time before overlap starts for all overlaps combined
+            "visualized_overlaps" : user.visualized_overlaps # ------------------------------------------ # Visualizable histogram of overlap intervals
         }
-            # TODO:
-            # num urls_per_overlap --- Define such as (2 + 3 + 2)/3 = 2.33.
-            # Sequential intervals of overlaps --> create via graph
-            # first overlap url per overlap
-            # avg first overlap url per overlaps
-
-
         rows.append(dct)
 
     app = Dash(__name__, external_stylesheets=external_stylesheets)
-
     data = Graph(users, fields, rows, "bigdata.csv", app)
+    data.get_df()
     data.create_csv()
-    data.get_figs()
+    data.get_default_figures()
+    data.get_graphs()
     data.init_app()
 
     app.run_server(dev_tools_hot_reload=False)
