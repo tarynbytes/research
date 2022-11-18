@@ -9,6 +9,7 @@ class Download():
         self._end_log = end_log
         self._start = start_log.timestamp
         self._end = end_log.timestamp
+        self._duration = None
 
     def __contains__(self, download):
         if (isinstance(download, Download)):
@@ -19,6 +20,9 @@ class Download():
     def __str__(self):
         return f"Download:\n\tstart:\t{self.start}\n\tend:\t{self.end}"
  
+    def get_duration(self):
+        self._duration = self._end - self._start
+
     @property
     def session(self):
         return self.session
@@ -40,4 +44,6 @@ class Download():
     @property
     def end(self):
         return self._end
-
+    @property
+    def duration(self):
+        return self._duration
