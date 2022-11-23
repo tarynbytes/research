@@ -105,7 +105,7 @@ def generate_user_info(users, ret_users):
             #print("   Getting visualized overlaps...")
             #user.get_visualized_overlaps()
 
-        #print_overlaps(user)
+        print_overlaps(user)
 
     ret_users.extend(users)
 
@@ -202,15 +202,15 @@ def get_overlap_axes(users):
 
 def ms_to_hours(ms):
     if ms:
-        return round(ms / 3600000, 2)
+        return ms / 3600000
 
 def ms_to_minutes(ms):
     if ms:
-        return round(ms / 60000, 2)
+        return ms / 60000
 
 def ms_to_seconds(ms):
     if ms:
-        return round(ms / 1000, 2)
+        return ms / 1000
 
 def parse_logs(filename:str):
     """Returns a list of parsed log_str objects, where each log_str object is a list of five strings."""
@@ -247,6 +247,7 @@ def main() -> int:
     totals.get_avg_time_between_overlaps()
     totals.get_avg_num_urls_per_overlaps()
     
+    """
     # user data
     user_fields, user_rows = get_user_axes(users)
     user_app = Dash(__name__, external_stylesheets=external_stylesheets)
@@ -296,7 +297,7 @@ def main() -> int:
     url_app.run_server(dev_tools_hot_reload=False)
     overlap_app.run_server(dev_tools_hot_reload=False)
     dload_app.run_server(dev_tools_hot_reload=False)
-
+    """
 
     return 0
 
