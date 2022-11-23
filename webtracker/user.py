@@ -62,7 +62,7 @@ class User():
         self._dloads = sorted(self._dloads, key=lambda val: (val.end, val.start))
 
     def get_percent_dloads(self):
-        self._percent_dloads = round((len(self._dloads) *2 / len(self._logs) *100), 2)
+        self._percent_dloads = (len(self._dloads) *2 / len(self._logs) *100)
 
     def get_urls_in_dloads(self):
         self._urls_in_dloads = [dload.url for dload in self._dloads if dload.url not in self._urls_in_dloads]
@@ -70,12 +70,12 @@ class User():
     def get_avg_dload_time_per_session(self):
         for session in self._sessions:
             if session.avg_dload_time is not None:
-                dct = {"Session H_ash" : session.hash, "Average dload time" : round((session.avg_dload_time), 2)}
+                dct = {"Session H_ash" : session.hash, "Average dload time" : session.avg_dload_time}
                 self._avg_dload_time_per_session.append(dct)
 
     def get_avg_session_time(self):
         if 0 < len(self._sessions):
-            self._avg_session_time = round((sum(session.duration for session in self._sessions) / len(self._sessions)), 2)
+            self._avg_session_time = (sum(session.duration for session in self._sessions) / len(self._sessions))
 
     def get_avg_dload_time_per_url(self):
         for url in self._urls_visited:
@@ -85,10 +85,10 @@ class User():
                         avg_times[url].append(session.avg_dload_time)
 
             for url, times in avg_times.items():
-                dct = {"URL" : url, "Average dload time" : round(mean(times), 2)}
+                dct = {"URL" : url, "Average dload time" : mean(times)}
                 self._avg_dload_time_per_url.append(dct)
 
-
+    
     def get_overlaps(self):
 
         idx = 0
@@ -106,7 +106,6 @@ class User():
                     curr_overlaps = {}
 
                     for dload in self._dloads[idx +1:]:
-                        #print(starting_dload.start, dload.start, greatest_end)
                         if starting_dload.start < dload.start <= ending_dload.end:
                             curr_overlaps[dload] = dload.end
                         
@@ -114,14 +113,14 @@ class User():
                         if idx == len(self._dloads) - 1:
                             break
                         else: # idx != len(self._dloads) - 1:
-                            prev_overlaps = copy.deepcopy(curr_overlaps)
                             idx += 1
                             starting_dload = self._dloads[idx]
                             ending_dload = self._dloads[idx]
 
                     elif 2 > len(prev_overlaps) and 2 <= len(curr_overlaps): # No previous but current
                         greatest_end = max(curr_overlaps.values())
-                        target_dload = list(curr_overlaps.keys())[list(curr_overlaps.values()).index(greatest_end)] #BUG IF MULTIPLE OCCURENCES OF MAX VALUE.
+                        i = len(list(curr_overlaps.values())) - list(curr_overlaps.values())[::-1].index(greatest_end) - 1 # last occurence of max value
+                        target_dload = list(curr_overlaps.keys())[i]
 
                         if idx == len(self._dloads) - 1:
                             self._overlaps.append(Overlap(self, starting_dload, list(total_overlaps.keys()), target_dload))  
@@ -129,53 +128,57 @@ class User():
                         else: # idx != len(self._dloads) - 1:
                             for dload in curr_overlaps:
                                 if dload not in total_overlaps:
-                                    total_overlaps.update(curr_overlaps)
-                            prev_overlaps = copy.deepcopy(curr_overlaps)
-                            ending_dload = self._dloads[idx]
+                                    total_overlaps[dload] = dload.end
                             idx += 1
+                            ending_dload = self._dloads[idx]
 
                     elif 2 <= len(prev_overlaps) and 2 > len(curr_overlaps): # Previous but no current
+                        greatest_end = max(total_overlaps.values())
+                        i = len(list(total_overlaps.values())) - list(total_overlaps.values())[::-1].index(greatest_end) - 1
+                        target_dload = list(total_overlaps.keys())[i]
                         self._overlaps.append(Overlap(self, starting_dload, list(total_overlaps.keys()), target_dload))
 
                         if idx == len(self._dloads) - 1:
                             break
                         else: # idx != len(self._dloads) - 1:
                             total_overlaps.clear()
-                            prev_overlaps = copy.deepcopy(curr_overlaps)
-                            starting_dload = self._dloads[idx]
                             idx += 1
+                            starting_dload = self._dloads[idx]
 
                     elif 2 <= len(prev_overlaps) and 2 <= len(curr_overlaps): # Both previous and current:
                         greatest_end = max(total_overlaps.values())
-                        target_dload = list(total_overlaps.keys())[list(total_overlaps.values()).index(greatest_end)] #BUG IF MULTIPLE OCCURENCES OF MAX VALUE.
-
-                        if idx == len(self._dloads) - 1:
+                        i = len(list(total_overlaps.values())) - list(total_overlaps.values())[::-1].index(greatest_end) - 1 # last occurence of max value
+                        target_dload = list(total_overlaps.keys())[i]
+                        
+                        if idx == len(self._dloads) - 1:                
                             self._overlaps.append(Overlap(self, starting_dload, list(total_overlaps.keys()), target_dload))
                             break
                         else: # idx != len(self._dloads) - 1:
                             for dload in curr_overlaps:
                                 if dload not in total_overlaps:
-                                    total_overlaps.update(curr_overlaps)
-                            prev_overlaps = copy.deepcopy(curr_overlaps)
+                                    total_overlaps[dload] = dload.end
                             idx += 1
+                            ending_dload = self._dloads[idx]
+
+                    prev_overlaps = copy.deepcopy(curr_overlaps)
 
                 except IndexError:
                     break
         except IndexError:
             pass
-
+    
     
     def get_percent_overlaps(self):
         overlap_logs = 0
         for overlap in self._overlaps:
             overlap_logs += len(overlap.overlapping_starts) + 1
-        self._percent_overlaps = round((overlap_logs / len(self._logs) *100), 2)
+        self._percent_overlaps = (overlap_logs / len(self._logs) *100)
 
     def get_avg_num_urls_per_overlaps(self): 
-        self._avg_num_urls_per_overlaps = round((sum(overlap.num_urls for overlap in self._overlaps) / len(self._overlaps)), 2)
+        self._avg_num_urls_per_overlaps = (sum(overlap.num_urls for overlap in self._overlaps) / len(self._overlaps))
 
     def get_avg_overlap_time(self):
-        self._avg_overlap_time = round((sum(overlap.duration for overlap in self._overlaps) / len(self._overlaps)), 2)
+        self._avg_overlap_time = (sum(overlap.duration for overlap in self._overlaps) / len(self._overlaps))
 
     def get_avg_time_between_overlaps(self):
         times_between_overlaps = []
@@ -186,10 +189,10 @@ class User():
                     break
                 times_between_overlaps.append(self._overlaps[idx+1].overlap_start - self._overlaps[idx].overlap_end)
                 idx += 1
-            self._avg_time_between_overlaps = round((sum(times_between_overlaps) / len(times_between_overlaps)), 2)
+            self._avg_time_between_overlaps = (sum(times_between_overlaps) / len(times_between_overlaps))
 
     def get_avg_time_before_overlap_starts(self):
-        self._avg_time_before_overlap_starts = round((sum(overlap.time_before_overlap_starts for overlap in self._overlaps) / len(self._overlaps)), 2)
+        self._avg_time_before_overlap_starts = (sum(overlap.time_before_overlap_starts for overlap in self._overlaps) / len(self._overlaps))
     
     def get_visualized_overlaps(self):
         pass
