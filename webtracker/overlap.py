@@ -61,7 +61,7 @@ class Overlap():
             overlapping_log_percents.append(percent)
         percentages.extend(overlapping_log_percents)
 
-        self._num_urls = round((sum(percentages) / len(percentages)) * 100, 2)
+        self._num_urls = sum(percentages)
 
     @property
     def start(self):
